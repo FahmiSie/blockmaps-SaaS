@@ -1,48 +1,30 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
 generator client {
     provider = "prisma-client-js"
-    output   = "../generated/prisma"
 }
 
 datasource db {
-    provider = "postgresql"
-    // NOTE: When using mysql or sqlserver, uncomment the @db.Text annotations in model Account below
-    // Further reading:
-    // https://next-auth.js.org/adapters/prisma#create-the-prisma-schema
-    // https://www.prisma.io/docs/reference/api-reference/prisma-schema-reference#string
-    url      = env("DATABASE_URL")
+    provider  = "postgresql"
+    url       = env("DATABASE_URL")
+    directUrl = env("DIRECT_URL")
 }
 
-model Post {
-    id        Int      @id @default(autoincrement())
-    name      String
-    createdAt DateTime @default(now())
-    updatedAt DateTime @updatedAt
+// ============ AUTH ============
 
-    createdBy   User   @relation(fields: [createdById], references: [id])
-    createdById String
-
-    @@index([name])
-}
-
-// Necessary for Next auth
 model Account {
     id                       String  @id @default(cuid())
     userId                   String
     type                     String
     provider                 String
     providerAccountId        String
-    refresh_token            String? // @db.Text
-    access_token             String? // @db.Text
+    refresh_token            String? @db.Text
+    access_token             String? @db.Text
     expires_at               Int?
     token_type               String?
     scope                    String?
-    id_token                 String? // @db.Text
+    id_token                 String? @db.Text
     session_state            String?
-    user                     User    @relation(fields: [userId], references: [id], onDelete: Cascade)
     refresh_token_expires_in Int?
+    user                     User    @relation(fields: [userId], references: [id], onDelete: Cascade)
 
     @@unique([provider, providerAccountId])
 }
@@ -55,21 +37,155 @@ model Session {
     user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
-model User {
-    id            String    @id @default(cuid())
-    name          String?
-    email         String?   @unique
-    emailVerified DateTime?
-    image         String?
-    accounts      Account[]
-    sessions      Session[]
-    posts         Post[]
-}
-
 model VerificationToken {
     identifier String
     token      String   @unique
     expires    DateTime
 
     @@unique([identifier, token])
+}
+
+// ============ ENUMS ============
+
+enum Role {
+    ADMIN
+    MANAGER
+    OPERATOR
+}
+
+enum ZoneType {
+    RAW_MATERIAL
+    PRODUCTION
+    FINISHED_GOODS
+    STORAGE
+}
+
+enum DeliveryStatus {
+    PENDING
+    APPROVED
+    REJECTED
+    IN_PROGRESS
+    COMPLETED
+}
+
+// ============ USER ============
+
+model User {
+    id             String    @id @default(cuid())
+    name           String?
+    email          String?   @unique
+    emailVerified  DateTime?
+    image          String?
+    password       String?   @db.Text
+    role           Role      @default(OPERATOR)
+    verifyToken    String?   @unique
+    verifyTokenExp DateTime?
+    companyId      String?
+    createdAt      DateTime  @default(now())
+    updatedAt      DateTime  @updatedAt
+
+    company          Company?          @relation(fields: [companyId], references: [id])
+    accounts         Account[]
+    sessions         Session[]
+    deliveryRequests DeliveryRequest[] @relation("RequestedBy")
+    approvedRequests DeliveryRequest[] @relation("ApprovedBy")
+}
+
+// ============ TENANT ============
+
+model Company {
+    id        String   @id @default(cuid())
+    name      String
+    slug      String   @unique
+    createdAt DateTime @default(now())
+    updatedAt DateTime @updatedAt
+
+    users    User[]
+    zones    Zone[]
+    items    Item[]
+    deliveries DeliveryRequest[]
+}
+
+// ============ FLOOR PLAN ============
+
+model Zone {
+    id        String   @id @default(cuid())
+    companyId String
+    name      String
+    type      ZoneType
+    positionX Float
+    positionY Float
+    width     Float
+    height    Float
+    isActive  Boolean  @default(true)
+    createdAt DateTime @default(now())
+    updatedAt DateTime @updatedAt
+
+    company        Company           @relation(fields: [companyId], references: [id], onDelete: Cascade)
+    inventory      Inventory[]
+    deliveriesFrom DeliveryRequest[] @relation("DeliveryFrom")
+    deliveriesTo   DeliveryRequest[] @relation("DeliveryTo")
+}
+
+// ============ MASTER DATA ============
+
+model Item {
+    id        String   @id @default(cuid())
+    companyId String
+    name      String
+    sku       String
+    unit      String
+    createdAt DateTime @default(now())
+    updatedAt DateTime @updatedAt
+
+    company       Company        @relation(fields: [companyId], references: [id], onDelete: Cascade)
+    inventory     Inventory[]
+    deliveryItems DeliveryItem[]
+
+    @@unique([companyId, sku])
+}
+
+model Inventory {
+    id        String   @id @default(cuid())
+    zoneId    String
+    itemId    String
+    quantity  Float
+    updatedAt DateTime @updatedAt
+
+    zone Zone @relation(fields: [zoneId], references: [id], onDelete: Cascade)
+    item Item @relation(fields: [itemId], references: [id])
+
+    @@unique([zoneId, itemId])
+}
+
+// ============ TRANSACTION ============
+
+model DeliveryRequest {
+    id            String         @id @default(cuid())
+    companyId     String
+    requestedById String
+    approvedById  String?
+    fromZoneId    String
+    toZoneId      String
+    status        DeliveryStatus @default(PENDING)
+    notes         String?        @db.Text
+    createdAt     DateTime       @default(now())
+    updatedAt     DateTime       @updatedAt
+
+    company     Company      @relation(fields: [companyId], references: [id])
+    requestedBy User         @relation("RequestedBy", fields: [requestedById], references: [id])
+    approvedBy  User?        @relation("ApprovedBy", fields: [approvedById], references: [id])
+    fromZone    Zone         @relation("DeliveryFrom", fields: [fromZoneId], references: [id])
+    toZone      Zone         @relation("DeliveryTo", fields: [toZoneId], references: [id])
+    items       DeliveryItem[]
+}
+
+model DeliveryItem {
+    id                String  @id @default(cuid())
+    deliveryRequestId String
+    itemId            String
+    quantity          Float
+
+    deliveryRequest DeliveryRequest @relation(fields: [deliveryRequestId], references: [id], onDelete: Cascade)
+    item            Item            @relation(fields: [itemId], references: [id])
 }

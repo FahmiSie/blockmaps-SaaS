@@ -1,10 +1,13 @@
-import NextAuth from "next-auth";
-import { cache } from "react";
+/* eslint-disable @typescript-eslint/no-unsafe-assignment */
+// src/server/auth/index.ts
+import NextAuth, { getServerSession } from "next-auth";
 
 import { authConfig } from "./config";
 
-const { auth: uncachedAuth, handlers, signIn, signOut } = NextAuth(authConfig);
+export const handler = NextAuth(authConfig);
 
-const auth = cache(uncachedAuth);
+export const auth = () => getServerSession(authConfig);
 
-export { auth, handlers, signIn, signOut };
+export const getAuthSession = auth;
+
+export { authConfig };
