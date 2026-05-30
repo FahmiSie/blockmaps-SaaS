@@ -1,5 +1,3 @@
-
-// src/server/auth/config.ts
 import { PrismaAdapter } from "@auth/prisma-adapter";
 import { type AuthOptions } from "next-auth";
 import CredentialsProvider from "next-auth/providers/credentials";
@@ -13,6 +11,7 @@ declare module "next-auth" {
     user: {
       id: string;
       role: string;
+      companyId: string | null;
       name?: string | null;
       email?: string | null;
       image?: string | null;
@@ -21,6 +20,7 @@ declare module "next-auth" {
 
   interface User {
     role?: string;
+    companyId?: string | null;
   }
 }
 
@@ -28,6 +28,7 @@ declare module "next-auth/jwt" {
   interface JWT {
     id?: string;
     role?: string;
+    companyId?: string | null;
   }
 }
 
@@ -54,6 +55,15 @@ export const authConfig: AuthOptions = {
 
         const user = await prisma.user.findUnique({
           where: { email: credentials.email },
+          select: {
+            id: true,
+            name: true,
+            email: true,
+            image: true,
+            password: true,
+            role: true,
+            companyId: true,
+          },
         });
 
         if (!user) {
@@ -75,13 +85,13 @@ export const authConfig: AuthOptions = {
           console.log("LOGIN_ERROR: Password salah untuk:", credentials.email);
           return null;
         }
-        if (!user.emailVerified) {
-          console.log(
-            "LOGIN_ERROR: Email belum diverifikasi:",
-            credentials.email,
-          );
-          throw new Error("EMAIL_NOT_VERIFIED");
-        }
+
+        // EMAIL VERIFICATION DINONAKTIFKAN
+        // TODO: aktifkan kembali setelah flow verifikasi email siap
+        // if (!user.emailVerified) {
+        //   console.log("LOGIN_ERROR: Email belum diverifikasi:", credentials.email);
+        //   throw new Error("EMAIL_NOT_VERIFIED");
+        // }
 
         console.log("LOGIN_SUCCESS:", user.email);
 
@@ -89,7 +99,9 @@ export const authConfig: AuthOptions = {
           id: user.id,
           name: user.name,
           email: user.email,
+          image: user.image,
           role: user.role,
+          companyId: user.companyId,
         };
       },
     }),
@@ -108,18 +120,28 @@ export const authConfig: AuthOptions = {
   },
 
   callbacks: {
-    async jwt({ token, user }) {
+    async jwt({ token, user, trigger, session }) {
       if (user) {
         token.id = user.id;
         token.role = user.role;
+        token.companyId = user.companyId;
       }
+
+      // Panggil update() dari client setelah user create/join company
+      // Contoh: await update({ companyId: newId, role: "ADMIN" })
+      if (trigger === "update" && session) {
+        if (session.companyId !== undefined) token.companyId = session.companyId;
+        if (session.role !== undefined) token.role = session.role;
+      }
+
       return token;
     },
 
     async session({ session, token }) {
       if (session.user && token) {
         session.user.id = token.id!;
-        session.user.role = token.role!;
+        session.user.role = token.role ?? "OPERATOR";
+        session.user.companyId = token.companyId ?? null;
       }
       return session;
     },
