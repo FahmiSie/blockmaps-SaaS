@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import bcrypt from "bcryptjs";
+import crypto from "crypto";
 import { prisma } from "@/server/db";
 import { auth } from "@/server/auth";
 
@@ -63,10 +64,16 @@ export async function registerAction(
     }
 
     const hashed = await bcrypt.hash(password, 12);
+    const verifyToken = crypto.randomBytes(32).toString("hex");
+    const verifyTokenExp = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours
+
     const user = await prisma.user.create({
-      data: { name, email, password: hashed },
+      data: { name, email, password: hashed, verifyToken, verifyTokenExp },
       select: { id: true },
     });
+
+    // Simulate sending email
+    console.log(`\n\n[DEV ONLY] Verify Email Link: http://localhost:3000/verify-email?token=${verifyToken}\n\n`);
 
     return { success: true, data: user };
   } catch (err) {
@@ -196,5 +203,64 @@ export async function removeUserFromCompanyAction(
   } catch (err) {
     console.error("[removeUserFromCompanyAction]", err);
     return { success: false, error: "Failed to remove user." };
+  }
+}
+
+// ── EMAIL VERIFICATION ─────────────────────────────────────
+
+export async function verifyEmailAction(token: string): Promise<ActionResult> {
+  if (!token) return { success: false, error: "No verification token provided." };
+
+  try {
+    const user = await prisma.user.findUnique({ where: { verifyToken: token } });
+    
+    if (!user) {
+      return { success: false, error: "Invalid verification link." };
+    }
+    if (user.emailVerified) {
+      return { success: false, error: "Email is already verified." };
+    }
+    if (user.verifyTokenExp && user.verifyTokenExp < new Date()) {
+      return { success: false, error: "Verification link has expired." };
+    }
+
+    await prisma.user.update({
+      where: { id: user.id },
+      data: { 
+        emailVerified: new Date(),
+        verifyToken: null,
+        verifyTokenExp: null,
+      },
+    });
+
+    return { success: true, data: undefined };
+  } catch (err) {
+    console.error("[verifyEmailAction]", err);
+    return { success: false, error: "Failed to verify email." };
+  }
+}
+
+export async function resendVerificationAction(email: string): Promise<ActionResult> {
+  if (!email) return { success: false, error: "Email is required." };
+
+  try {
+    const user = await prisma.user.findUnique({ where: { email } });
+    if (!user) return { success: false, error: "Account not found." };
+    if (user.emailVerified) return { success: false, error: "Email already verified." };
+
+    const verifyToken = crypto.randomBytes(32).toString("hex");
+    const verifyTokenExp = new Date(Date.now() + 24 * 60 * 60 * 1000);
+
+    await prisma.user.update({
+      where: { id: user.id },
+      data: { verifyToken, verifyTokenExp },
+    });
+
+    console.log(`\n\n[DEV ONLY] New Verify Email Link: http://localhost:3000/verify-email?token=${verifyToken}\n\n`);
+
+    return { success: true, data: undefined };
+  } catch (err) {
+    console.error("[resendVerificationAction]", err);
+    return { success: false, error: "Failed to resend verification email." };
   }
 }

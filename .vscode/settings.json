@@ -1,3 +1,19 @@
 {
-  "prisma.pinToPrisma6": true
+  "prisma.pinToPrisma6": true,
+
+  // ── Tailwind v4: suppress CSS false positives ──────────────────
+  // @theme, @custom-variant, @apply are valid Tailwind v4 at-rules.
+  // VSCode's built-in CSS linter does not understand them — disable it.
+  "css.validate": false,
+  "scss.validate": false,
+  "less.validate": false,
+
+  // ── TailwindCSS IntelliSense file association ──────────────────
+  "files.associations": {
+    "*.css": "tailwindcss"
+  },
+
+  // ── TypeScript: always use workspace tsconfig ──────────────────
+  "typescript.tsdk": "node_modules/typescript/lib",
+  "typescript.enablePromptUseWorkspaceTsdk": true
 }
