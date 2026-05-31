@@ -2,19 +2,7 @@ import React from "react";
 import Link from "next/link";
 import { type LucideIcon } from "lucide-react";
 
-/* ═══════════════════════════════════════════════════════════════
-   BLOCKMAPS EMPTY STATE
-   Industrial, functional empty state per claude.MD Prompt 09.
-   No cute illustrations. Icon + text + CTA.
-   
-   Usage:
-     <EmptyState
-       icon={Truck}
-       title="No deliveries yet"
-       description="Create your first delivery to start tracking shipments."
-       action={{ label: "New Delivery", href: "/dashboard/deliveries/new" }}
-     />
-   ═══════════════════════════════════════════════════════════════ */
+
 
 interface EmptyStateAction {
   label: string;

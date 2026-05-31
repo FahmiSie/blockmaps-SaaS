@@ -1,19 +1,7 @@
 import React from "react";
 import { TrendingUp, TrendingDown, Minus, type LucideIcon } from "lucide-react";
 
-/* ═══════════════════════════════════════════════════════════════
-   BLOCKMAPS METRIC CARD
-   Reusable stat card per claude.MD Prompt 07 spec.
-   
-   Usage:
-     <MetricCard
-       label="ACTIVE ZONES"
-       value={12}
-       icon={Map}
-       change={{ value: 2, percent: 12.5, direction: "up", period: "vs last week" }}
-       sparkline={[3, 5, 4, 7, 9, 8, 12]}
-     />
-   ═══════════════════════════════════════════════════════════════ */
+
 
 interface MetricCardProps {
   label: string;

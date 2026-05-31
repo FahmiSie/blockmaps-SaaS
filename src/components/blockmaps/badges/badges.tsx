@@ -1,16 +1,6 @@
 import React from "react";
 
-/* ═══════════════════════════════════════════════════════════════
-   BLOCKMAPS BADGE SYSTEM
-   Standardized badge components per claude.MD design system.
-   
-   Usage:
-     <ZoneBadge type="RAW_MATERIAL" />
-     <StatusBadge status="IN_PROGRESS" />
-     <SystemBadge status="OPERATIONAL" />
-   ═══════════════════════════════════════════════════════════════ */
 
-// ─── Zone Type Badge ──────────────────────────────────────────
 
 const ZONE_CONFIG = {
   RAW_MATERIAL:   { bg: "rgba(217,119,6,0.12)",  text: "#d97706",  label: "RAW MAT" },
