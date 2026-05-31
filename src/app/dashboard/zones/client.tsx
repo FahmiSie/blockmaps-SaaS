@@ -36,6 +36,7 @@ export type LayoutZone = {
   renderY: number;
   renderW: number;
   renderH: number;
+  hasCollision: boolean;
   zone: {
     id: string;
     name: string;
@@ -45,7 +46,7 @@ export type LayoutZone = {
     width: number;
     height: number;
     isActive: boolean;
-    _count: { inventory: number };
+    inventory?: any[];
   };
 };
 
@@ -55,48 +56,70 @@ function ZoneBlock({
   selected,
   debugMode,
   onClick,
+  onPositionChange,
 }: {
   layoutZone: LayoutZone;
   selected: boolean;
   debugMode: boolean;
   onClick: () => void;
+  onPositionChange?: (id: string, dx: number, dy: number) => void;
 }) {
-  const { zone, renderX, renderY, renderW, renderH, rawX, rawY } = layoutZone;
+  const { zone, renderX, renderY, renderW, renderH, rawX, rawY, hasCollision } = layoutZone;
   const cfg = ZONE_TYPE_CONFIG[zone.type as ZoneType] ?? ZONE_TYPE_CONFIG.STORAGE;
   const isOffset = rawX !== renderX || rawY !== renderY;
 
+  const handlePointerDown = (e: React.PointerEvent) => {
+    if (e.button !== 0 || !onPositionChange) return;
+    const el = e.currentTarget as HTMLElement;
+    el.setPointerCapture(e.pointerId);
+
+    let startX = e.clientX;
+    let startY = e.clientY;
+    let moved = false;
+
+    const onPointerMove = (ev: PointerEvent) => {
+      moved = true;
+      const dx = ev.clientX - startX;
+      const dy = ev.clientY - startY;
+      onPositionChange(zone.id, dx, dy);
+      startX = ev.clientX;
+      startY = ev.clientY;
+    };
+
+    const onPointerUp = (ev: PointerEvent) => {
+      el.releasePointerCapture(ev.pointerId);
+      el.removeEventListener("pointermove", onPointerMove);
+      el.removeEventListener("pointerup", onPointerUp);
+      if (!moved) onClick();
+    };
+
+    el.addEventListener("pointermove", onPointerMove);
+    el.addEventListener("pointerup", onPointerUp);
+  };
+
   return (
-    <button
-      type="button"
-      onClick={onClick}
+    <div
+      onPointerDown={handlePointerDown}
       style={{
         left: renderX,
         top: renderY,
         width: renderW,
         height: renderH,
+        cursor: "grab",
       }}
       className={`absolute flex flex-col justify-between rounded border p-3 text-left transition-all duration-300 ${
         selected ? "z-20" : "z-10 hover:z-30"
       } ${
-        !zone.isActive
+        hasCollision
+          ? "border-destructive bg-destructive/10 ring-1 ring-destructive/30"
+          : !zone.isActive
           ? "border-border/20 bg-card/20 opacity-40"
           : selected
-          ? "border-logistics-cyan bg-logistics-cyan/[0.04] shadow-[0_0_20px_rgba(6,182,212,0.15),inset_0_0_12px_rgba(6,182,212,0.08)] ring-1 ring-logistics-cyan/30"
-          : "border-border bg-card/80 backdrop-blur-[2px] hover:border-logistics-cyan/50 hover:bg-accent/40 hover:shadow-[0_0_12px_rgba(6,182,212,0.05)]"
+          ? "border-foreground bg-accent/30 shadow-md ring-1 ring-foreground/20"
+          : "border-border bg-card hover:border-foreground/40 hover:bg-accent/40"
       } ${debugMode && isOffset ? "ring-1 ring-logistics-amber/70 border-logistics-amber bg-logistics-amber/10" : ""}`}
     >
-      {/* Visual scanning lines or telemetry highlights on selection */}
-      {selected && !debugMode && (
-        <>
-          {/* Glowing Corner Brackets */}
-          <div className="absolute -left-[1px] -top-[1px] h-3 w-3 border-l-2 border-t-2 border-logistics-cyan" />
-          <div className="absolute -right-[1px] -top-[1px] h-3 w-3 border-r-2 border-t-2 border-logistics-cyan" />
-          <div className="absolute -left-[1px] -bottom-[1px] h-3 w-3 border-l-2 border-b-2 border-logistics-cyan" />
-          <div className="absolute -right-[1px] -bottom-[1px] h-3 w-3 border-r-2 border-b-2 border-logistics-cyan" />
-          {/* Subtle animated scanline */}
-          <div className="absolute inset-x-0 top-0 h-[2px] bg-gradient-to-r from-transparent via-logistics-cyan/40 to-transparent animate-[scanline_2s_ease-in-out_infinite]" />
-        </>
-      )}
+      {/* Visual scanning lines removed for spatial mapping */}
 
       {/* Type badge */}
       <div className={`inline-flex items-center gap-1.5 self-start rounded-sm px-1.5 py-0.5 text-[9px] font-mono uppercase tracking-wider font-semibold ${cfg.className}`}>
@@ -108,7 +131,7 @@ function ZoneBlock({
       <div className="my-1">
         <p className="truncate text-[13px] font-medium tracking-tight text-foreground">{zone.name}</p>
         <p className="mt-0.5 font-mono text-[9px] tracking-wider text-muted-foreground uppercase">
-          {zone._count.inventory} registered SKU{zone._count.inventory !== 1 ? "s" : ""}
+          {zone.inventory?.length ?? 0} registered SKU{(zone.inventory?.length ?? 0) !== 1 ? "s" : ""}
         </p>
       </div>
 
@@ -123,15 +146,17 @@ function ZoneBlock({
           OFFSET: ΔX={renderX - Math.round(rawX/32)*32} ΔY={renderY - Math.round(rawY/32)*32}
         </div>
       )}
-    </button>
+    </div>
   );
 }
 
 // ─── Create zone modal ───────────────────────────────────────────
 function CreateZoneModal({
+  existingZones,
   onClose,
   onSuccess,
 }: {
+  existingZones: LayoutZone[];
   onClose: () => void;
   onSuccess: () => void;
 }) {
@@ -145,13 +170,38 @@ function CreateZoneModal({
     if (!name.trim()) return;
     setLoading(true);
     setError("");
+    const width = 224;
+    const height = 160;
+    const GRID_SIZE = 32;
+    
+    // Find first available slot scanning in a grid pattern
+    let placedX = 64;
+    let placedY = 64;
+    let foundSpot = false;
+    
+    for (let y = 32; y < 2000 && !foundSpot; y += GRID_SIZE) {
+      for (let x = 32; x < 2000 && !foundSpot; x += GRID_SIZE) {
+        const hasOverlap = existingZones.some(z => {
+          return x < z.renderX + z.renderW &&
+                 x + width > z.renderX &&
+                 y < z.renderY + z.renderH &&
+                 y + height > z.renderY;
+        });
+        if (!hasOverlap) {
+          placedX = x;
+          placedY = y;
+          foundSpot = true;
+        }
+      }
+    }
+
     const result = await createZoneAction({
       name: name.trim(),
       type,
-      positionX: Math.random() * 300 + 50,
-      positionY: Math.random() * 200 + 50,
-      width: 200,
-      height: 140,
+      positionX: placedX,
+      positionY: placedY,
+      width,
+      height,
     });
     setLoading(false);
     if (!result.success) { setError(result.error); return; }
@@ -225,7 +275,7 @@ function CreateZoneModal({
               disabled={loading || !name.trim()}
               className="flex-1 rounded-sm bg-foreground py-2 font-mono text-[10px] uppercase tracking-widest text-background transition hover:bg-foreground/90 disabled:opacity-50"
             >
-              {loading ? "PROVISIONING…" : "DEPLOY NODE"}
+              {loading ? "PROVISIONING…" : "CREATE ZONE"}
             </button>
           </div>
         </form>
@@ -249,7 +299,7 @@ function ZoneDetailPanel({
     width: number;
     height: number;
     isActive: boolean;
-    _count: { inventory: number };
+    inventory?: any[];
   };
   onClose: () => void;
   onRefresh: () => void;
@@ -316,9 +366,9 @@ function ZoneDetailPanel({
       <div className="flex-1 overflow-y-auto p-4 space-y-5">
         {/* Visual Cue of Inspector Node */}
         <div className="rounded-sm border border-border bg-background/50 p-3 flex items-center gap-3">
-          <div className={`h-2 w-2 rounded-full ${cfg.dot} animate-pulse`} />
+          <div className={`h-2 w-2 rounded-full ${cfg.dot}`} />
           <div className="min-w-0 flex-1">
-            <span className="font-mono text-[8px] uppercase tracking-widest text-muted-foreground/60">CONNECTED OPERATIONAL NODE</span>
+            <span className="font-mono text-[8px] uppercase tracking-widest text-muted-foreground/60">SELECTED PHYSICAL AREA</span>
             <p className="truncate text-xs font-mono text-foreground font-semibold">{zone.id.substring(0, 12)}...</p>
           </div>
         </div>
@@ -430,7 +480,7 @@ function ZoneDetailPanel({
           <div className="rounded-sm border border-border bg-background/30 p-3 flex flex-col justify-between">
             <span className="font-mono text-[8px] uppercase tracking-widest text-muted-foreground/70">INVENTORY SKU</span>
             <span className="mt-2 text-[18px] font-mono font-medium text-foreground tracking-tight">
-              {zone._count.inventory}
+              {zone.inventory?.length ?? 0}
             </span>
           </div>
 
@@ -493,7 +543,7 @@ function ZoneDetailPanel({
 // ─── Main component ──────────────────────────────────────────────
 export function ZonesClient() {
   const utils = api.useUtils();
-  const { data: zones, isLoading } = api.zone.list.useQuery({ includeInactive: true });
+  const { data: zones, isLoading } = api.zone.floorPlan.useQuery();
   const { data: stats } = api.zone.stats.useQuery();
 
   const [viewMode, setViewMode] = useState<ViewMode>("map");
@@ -501,6 +551,7 @@ export function ZonesClient() {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [debugMode, setDebugMode] = useState(false);
   const [savingLayout, setSavingLayout] = useState(false);
+  const [localOffsets, setLocalOffsets] = useState<Record<string, { dx: number; dy: number }>>({});
   const mapRef = useRef<HTMLDivElement>(null);
   const [mapWidth, setMapWidth] = useState(1000);
 
@@ -519,87 +570,89 @@ export function ZonesClient() {
   }, [viewMode]);
 
   const GRID_SIZE = 32;
-  const MAP_WIDTH_LIMIT = mapWidth > 0 ? mapWidth : 1000;
+
+  const handlePositionChange = useCallback((id: string, dx: number, dy: number) => {
+    setLocalOffsets((prev) => {
+      const current = prev[id] || { dx: 0, dy: 0 };
+      return { ...prev, [id]: { dx: current.dx + dx, dy: current.dy + dy } };
+    });
+  }, []);
 
   const layoutZones = useMemo(() => {
     if (!zones) return [];
 
-    // Sort deterministically by ID to prevent unstable layouts
     const sortedZones = [...zones].sort((a, b) => a.id.localeCompare(b.id));
     const processed: LayoutZone[] = [];
 
     for (const zone of sortedZones) {
-      // 1. Grid Snap
       const rawX = zone.positionX;
       const rawY = zone.positionY;
       
       let renderW = Math.max(GRID_SIZE, Math.round(zone.width / GRID_SIZE) * GRID_SIZE);
       let renderH = Math.max(GRID_SIZE, Math.round(zone.height / GRID_SIZE) * GRID_SIZE);
       
-      let candidateX = Math.round(rawX / GRID_SIZE) * GRID_SIZE;
-      let candidateY = Math.round(rawY / GRID_SIZE) * GRID_SIZE;
-
-      // 2. Collision detection loop
-      let collision = true;
-      let attempts = 0;
-      while (collision && attempts < 1000) {
-        collision = false;
-        for (const p of processed) {
-          // AABB overlap check
-          if (
-            candidateX < p.renderX + p.renderW &&
-            candidateX + renderW > p.renderX &&
-            candidateY < p.renderY + p.renderH &&
-            candidateY + renderH > p.renderY
-          ) {
-            collision = true;
-            break;
-          }
-        }
-        
-        if (collision) {
-          candidateX += GRID_SIZE;
-          if (candidateX + renderW > MAP_WIDTH_LIMIT) {
-            candidateX = 0;
-            candidateY += GRID_SIZE;
-          }
-          attempts++;
-        }
-      }
+      const offset = localOffsets[zone.id] || { dx: 0, dy: 0 };
+      let renderX = Math.round((rawX + offset.dx) / GRID_SIZE) * GRID_SIZE;
+      let renderY = Math.round((rawY + offset.dy) / GRID_SIZE) * GRID_SIZE;
 
       processed.push({
         rawX,
         rawY,
-        renderX: candidateX,
-        renderY: candidateY,
+        renderX,
+        renderY,
         renderW,
         renderH,
+        hasCollision: false,
         zone,
       });
     }
 
+    // AABB Collision Detection for all zones
+    for (let i = 0; i < processed.length; i++) {
+      for (let j = 0; j < processed.length; j++) {
+        if (i === j) continue;
+        const a = processed[i];
+        const b = processed[j];
+        if (!a || !b) continue;
+        if (
+          a.renderX < b.renderX + b.renderW &&
+          a.renderX + a.renderW > b.renderX &&
+          a.renderY < b.renderY + b.renderH &&
+          a.renderY + a.renderH > b.renderY
+        ) {
+          a.hasCollision = true;
+          b.hasCollision = true;
+        }
+      }
+    }
+
     return processed;
-  }, [zones]);
+  }, [zones, localOffsets]);
 
   const selectedLayoutZone = layoutZones.find((lz) => lz.zone.id === selectedId) ?? null;
   const selectedZone = selectedLayoutZone?.zone ?? null;
 
+  const bulkUpdate = api.zone.bulkUpdatePositions.useMutation({
+    onSuccess: () => {
+      setLocalOffsets({});
+      refresh();
+    }
+  });
+
   async function handleSaveLayout() {
     setSavingLayout(true);
-    // Identify zones that were moved
     const moved = layoutZones.filter(lz => lz.rawX !== lz.renderX || lz.rawY !== lz.renderY);
-    for (const lz of moved) {
-      await updateZoneAction({
-        id: lz.zone.id,
-        name: lz.zone.name,
-        positionX: lz.renderX,
-        positionY: lz.renderY,
-        width: lz.renderW,
-        height: lz.renderH,
-      });
+    const updates = moved.map(lz => ({
+      id: lz.zone.id,
+      positionX: lz.renderX,
+      positionY: lz.renderY,
+      width: lz.renderW,
+      height: lz.renderH,
+    }));
+    if (updates.length > 0) {
+      await bulkUpdate.mutateAsync(updates);
     }
     setSavingLayout(false);
-    refresh();
   }
 
   function refresh() {
@@ -614,41 +667,11 @@ export function ZonesClient() {
     count: zones?.filter((z) => z.type === type).length ?? 0,
   }));
 
-  // SVG Telemetry path calculation — dynamic width, smooth cubic bezier
-  const getTelemetryPath = useCallback(() => {
-    if (!selectedLayoutZone) return "";
-    const startX = selectedLayoutZone.renderX + selectedLayoutZone.renderW;
-    const startY = selectedLayoutZone.renderY + selectedLayoutZone.renderH / 2;
-    const endX = mapWidth - 4; // Right edge of the map container (inspector border)
-    const endY = selectedLayoutZone.renderY + selectedLayoutZone.renderH / 2;
-
-    // Smooth cubic bezier — the control points pull the curve horizontally
-    const dx = endX - startX;
-    const cp1x = startX + dx * 0.4;
-    const cp2x = startX + dx * 0.6;
-
-    return `M ${startX} ${startY} C ${cp1x} ${startY}, ${cp2x} ${endY}, ${endX} ${endY}`;
-  }, [selectedLayoutZone, mapWidth]);
-
   const hasUnsavedLayout = layoutZones.some(lz => lz.rawX !== lz.renderX || lz.rawY !== lz.renderY);
+  const hasCollisions = layoutZones.some(lz => lz.hasCollision);
 
   return (
     <div className="flex h-full flex-col">
-      {/* Dynamic scanline + circuit tracing CSS injection */}
-      <style dangerouslySetInnerHTML={{ __html: `
-        @keyframes scanline {
-          0% { top: 0%; opacity: 0; }
-          10% { opacity: 0.8; }
-          90% { opacity: 0.8; }
-          100% { top: 100%; opacity: 0; }
-        }
-        @keyframes telemetry-dash {
-          to {
-            stroke-dashoffset: -20;
-          }
-        }
-      `}} />
-
       {/* ── Page header ── */}
       <div className="flex shrink-0 items-center justify-between border-b border-border px-5 py-3">
         <div className="flex items-center gap-3">
@@ -663,15 +686,20 @@ export function ZonesClient() {
         </div>
 
         <div className="flex items-center gap-2">
-          {debugMode && hasUnsavedLayout && (
+          {hasUnsavedLayout && (
             <button
               type="button"
               onClick={handleSaveLayout}
-              disabled={savingLayout}
-              className="flex items-center gap-1.5 rounded-md border border-logistics-amber/50 bg-logistics-amber/10 px-3 py-1.5 text-[12px] font-medium tracking-tight text-logistics-amber transition hover:bg-logistics-amber/20 disabled:opacity-50"
+              disabled={savingLayout || hasCollisions}
+              className={`flex items-center gap-1.5 rounded-md border px-3 py-1.5 text-[12px] font-medium tracking-tight transition ${
+                hasCollisions
+                  ? "border-destructive/50 bg-destructive/10 text-destructive opacity-50 cursor-not-allowed"
+                  : "border-logistics-amber/50 bg-logistics-amber/10 text-logistics-amber hover:bg-logistics-amber/20"
+              }`}
+              title={hasCollisions ? "Cannot save layout with overlapping zones" : "Save Layout"}
             >
               <Save className="h-3.5 w-3.5" />
-              {savingLayout ? "Saving..." : "Save Layout"}
+              {savingLayout ? "Saving..." : hasCollisions ? "Resolve Overlaps" : "Save Layout"}
             </button>
           )}
 
@@ -802,11 +830,10 @@ export function ZonesClient() {
                 </div>
               )}
 
-              {/* Glowing animated connection path */}
-              {(selectedLayoutZone || debugMode) && (
+              {/* Debug Mode: Offset vectors */}
+              {debugMode && (
                 <svg className="absolute inset-0 pointer-events-none w-full h-full z-0 overflow-visible">
-                  {/* Debug Mode: Offset vectors */}
-                  {debugMode && layoutZones.map(lz => {
+                  {layoutZones.map(lz => {
                     const snappedRawX = Math.round(lz.rawX / GRID_SIZE) * GRID_SIZE;
                     const snappedRawY = Math.round(lz.rawY / GRID_SIZE) * GRID_SIZE;
                     if (snappedRawX === lz.renderX && snappedRawY === lz.renderY) return null;
@@ -818,36 +845,6 @@ export function ZonesClient() {
                       </g>
                     );
                   })}
-
-                  {selectedLayoutZone && !debugMode && (
-                    <>
-                      {/* Glow layer */}
-                      <path
-                        d={getTelemetryPath()}
-                        fill="none"
-                        stroke="var(--logistics-cyan)"
-                        strokeWidth="3.5"
-                        className="opacity-15 blur-[2.5px]"
-                      />
-                      {/* Neon main circuit line */}
-                      <path
-                        d={getTelemetryPath()}
-                        fill="none"
-                        stroke="var(--logistics-cyan)"
-                        strokeWidth="1.25"
-                        className="opacity-45"
-                      />
-                      {/* Telemetry data transmission pulse dots */}
-                      <path
-                        d={getTelemetryPath()}
-                        fill="none"
-                        stroke="var(--logistics-cyan)"
-                        strokeWidth="1.5"
-                        strokeDasharray="5 15"
-                        className="opacity-90 animate-[telemetry-dash_1.5s_linear_infinite]"
-                      />
-                    </>
-                  )}
                 </svg>
               )}
 
@@ -858,6 +855,7 @@ export function ZonesClient() {
                   selected={selectedId === lz.zone.id}
                   debugMode={debugMode}
                   onClick={() => setSelectedId(selectedId === lz.zone.id ? null : lz.zone.id)}
+                  onPositionChange={handlePositionChange}
                 />
               ))}
             </div>
@@ -891,7 +889,7 @@ export function ZonesClient() {
                           </span>
                         </td>
                         <td className="py-2.5 pr-4 tabular-nums text-muted-foreground">
-                          {z._count.inventory}
+                          {z.inventory?.length ?? 0}
                         </td>
                         <td className="py-2.5 pr-4 font-mono tabular-nums text-muted-foreground/70">
                           {z.positionX.toFixed(0)},{z.positionY.toFixed(0)}
@@ -931,6 +929,7 @@ export function ZonesClient() {
       {/* Create modal */}
       {showCreate && (
         <CreateZoneModal
+          existingZones={layoutZones}
           onClose={() => setShowCreate(false)}
           onSuccess={refresh}
         />
