@@ -13,7 +13,6 @@ import {
   ToggleLeft,
   Trash2,
   Pencil,
-  Bug,
   Save,
 } from "lucide-react";
 import { createZoneAction, deleteZoneAction, updateZoneAction } from "@/server/actions/zone.action";
@@ -28,6 +27,9 @@ const ZONE_TYPE_CONFIG = {
 
 type ZoneType = keyof typeof ZONE_TYPE_CONFIG;
 type ViewMode = "map" | "list";
+
+const GRID_SIZE = 32;
+const CANVAS_PADDING = 0; // min gap from all canvas edges
 
 export type LayoutZone = {
   rawX: number;
@@ -54,19 +56,16 @@ export type LayoutZone = {
 function ZoneBlock({
   layoutZone,
   selected,
-  debugMode,
   onClick,
   onPositionChange,
 }: {
   layoutZone: LayoutZone;
   selected: boolean;
-  debugMode: boolean;
   onClick: () => void;
   onPositionChange?: (id: string, dx: number, dy: number) => void;
 }) {
-  const { zone, renderX, renderY, renderW, renderH, rawX, rawY, hasCollision } = layoutZone;
+  const { zone, renderX, renderY, renderW, renderH, hasCollision } = layoutZone;
   const cfg = ZONE_TYPE_CONFIG[zone.type as ZoneType] ?? ZONE_TYPE_CONFIG.STORAGE;
-  const isOffset = rawX !== renderX || rawY !== renderY;
 
   const handlePointerDown = (e: React.PointerEvent) => {
     if (e.button !== 0 || !onPositionChange) return;
@@ -117,7 +116,7 @@ function ZoneBlock({
           : selected
           ? "border-foreground bg-accent/30 shadow-md ring-1 ring-foreground/20"
           : "border-border bg-card hover:border-foreground/40 hover:bg-accent/40"
-      } ${debugMode && isOffset ? "ring-1 ring-logistics-amber/70 border-logistics-amber bg-logistics-amber/10" : ""}`}
+      }`}
     >
       {/* Visual scanning lines removed for spatial mapping */}
 
@@ -141,11 +140,6 @@ function ZoneBlock({
         <span>DIM: {renderW}x{renderH}</span>
       </div>
 
-      {debugMode && isOffset && (
-        <div className="absolute -top-6 left-0 whitespace-nowrap rounded bg-logistics-amber/20 px-1 py-0.5 font-mono text-[8px] text-logistics-amber border border-logistics-amber/40">
-          OFFSET: ΔX={renderX - Math.round(rawX/32)*32} ΔY={renderY - Math.round(rawY/32)*32}
-        </div>
-      )}
     </div>
   );
 }
@@ -364,7 +358,7 @@ function ZoneDetailPanel({
       </div>
 
       <div className="flex-1 overflow-y-auto p-4 space-y-5">
-        {/* Visual Cue of Inspector Node */}
+        {/* Visual Cue of Physical Area */}
         <div className="rounded-sm border border-border bg-background/50 p-3 flex items-center gap-3">
           <div className={`h-2 w-2 rounded-full ${cfg.dot}`} />
           <div className="min-w-0 flex-1">
@@ -415,7 +409,7 @@ function ZoneDetailPanel({
         {/* Position / Size */}
         <div className="space-y-2">
           <p className="font-mono text-[9px] uppercase tracking-widest text-muted-foreground/75">
-            Spatial Grid Telemetry
+            Spatial Dimensions
           </p>
           {editing ? (
             <div className="space-y-2">
@@ -463,7 +457,7 @@ function ZoneDetailPanel({
           ) : (
             <div className="rounded-sm border border-border bg-background/40 p-3 font-mono text-[10px] tabular-nums text-muted-foreground space-y-2">
               <div className="flex justify-between border-b border-border/20 pb-1.5">
-                <span className="text-muted-foreground/60">NODE ORIGIN X/Y</span>
+                <span className="text-muted-foreground/60">ZONE POSITION X/Y</span>
                 <span className="font-semibold text-foreground">{zone.positionX.toFixed(0)}px / {zone.positionY.toFixed(0)}px</span>
               </div>
               <div className="flex justify-between">
@@ -549,8 +543,8 @@ export function ZonesClient() {
   const [viewMode, setViewMode] = useState<ViewMode>("map");
   const [showCreate, setShowCreate] = useState(false);
   const [selectedId, setSelectedId] = useState<string | null>(null);
-  const [debugMode, setDebugMode] = useState(false);
   const [savingLayout, setSavingLayout] = useState(false);
+  const [toastMsg, setToastMsg] = useState<{ type: "success" | "error", message: string } | null>(null);
   const [localOffsets, setLocalOffsets] = useState<Record<string, { dx: number; dy: number }>>({});
   const mapRef = useRef<HTMLDivElement>(null);
   const [mapWidth, setMapWidth] = useState(1000);
@@ -559,24 +553,52 @@ export function ZonesClient() {
   useEffect(() => {
     const el = mapRef.current;
     if (!el) return;
-    const observer = new ResizeObserver((entries) => {
-      for (const entry of entries) {
-        setMapWidth(entry.contentRect.width);
-      }
-    });
-    observer.observe(el);
-    setMapWidth(el.clientWidth);
-    return () => observer.disconnect();
-  }, [viewMode]);
 
-  const GRID_SIZE = 32;
+    const updateWidth = () => {
+      if (mapRef.current) {
+        setMapWidth(mapRef.current.getBoundingClientRect().width);
+      }
+    };
+
+    updateWidth();
+
+    const observer = new ResizeObserver(updateWidth);
+    observer.observe(el);
+    window.addEventListener("resize", updateWidth);
+
+    return () => {
+      observer.disconnect();
+      window.removeEventListener("resize", updateWidth);
+    };
+  }, [viewMode, isLoading]);
 
   const handlePositionChange = useCallback((id: string, dx: number, dy: number) => {
     setLocalOffsets((prev) => {
-      const current = prev[id] || { dx: 0, dy: 0 };
-      return { ...prev, [id]: { dx: current.dx + dx, dy: current.dy + dy } };
+      const current = prev[id] ?? { dx: 0, dy: 0 };
+      const newDx = current.dx + dx;
+      const newDy = current.dy + dy;
+
+      const zone = zones?.find(z => z.id === id);
+      if (!zone) return { ...prev, [id]: { dx: newDx, dy: newDy } };
+
+      const rawX = zone.positionX;
+      const rawY = zone.positionY;
+      const renderW = Math.max(GRID_SIZE, Math.round(zone.width / GRID_SIZE) * GRID_SIZE);
+
+      let targetX = rawX + newDx;
+      let targetY = rawY + newDy;
+
+      // Real-time clamp (prevents accumulating hidden offset when dragged past boundary)
+      targetX = Math.max(CANVAS_PADDING, targetX);
+      targetY = Math.max(CANVAS_PADDING, targetY);
+      if (mapWidth > 0) {
+        const maxX = Math.max(0, mapWidth - renderW);
+        targetX = Math.min(targetX, maxX);
+      }
+
+      return { ...prev, [id]: { dx: targetX - rawX, dy: targetY - rawY } };
     });
-  }, []);
+  }, [zones, mapWidth]);
 
   const layoutZones = useMemo(() => {
     if (!zones) return [];
@@ -587,13 +609,34 @@ export function ZonesClient() {
     for (const zone of sortedZones) {
       const rawX = zone.positionX;
       const rawY = zone.positionY;
-      
+
       let renderW = Math.max(GRID_SIZE, Math.round(zone.width / GRID_SIZE) * GRID_SIZE);
       let renderH = Math.max(GRID_SIZE, Math.round(zone.height / GRID_SIZE) * GRID_SIZE);
-      
-      const offset = localOffsets[zone.id] || { dx: 0, dy: 0 };
+
+      const offset = localOffsets[zone.id] ?? { dx: 0, dy: 0 };
       let renderX = Math.round((rawX + offset.dx) / GRID_SIZE) * GRID_SIZE;
       let renderY = Math.round((rawY + offset.dy) / GRID_SIZE) * GRID_SIZE;
+
+      // Fallback for unsaved zones (position 0,0 from DB)
+      if (rawX === 0 && rawY === 0 && !localOffsets[zone.id]) {
+        renderX = CANVAS_PADDING + (processed.length % 4) * 260;
+        renderY = CANVAS_PADDING + Math.floor(processed.length / 4) * 200;
+        renderX = Math.round(renderX / GRID_SIZE) * GRID_SIZE;
+        renderY = Math.round(renderY / GRID_SIZE) * GRID_SIZE;
+      }
+
+      // ── Boundary clamping (all 4 sides) ──────────────────────
+      // Top/Left: minimum padding from canvas edge
+      renderX = Math.max(CANVAS_PADDING, renderX);
+      renderY = Math.max(CANVAS_PADDING, renderY);
+      // Right: zone right edge must not exceed canvas width
+      if (mapWidth > 0) {
+        const maxX = Math.max(0, mapWidth - renderW);
+        renderX = Math.min(renderX, maxX);
+      }
+      // Re-snap to grid after clamping
+      renderX = Math.round(renderX / GRID_SIZE) * GRID_SIZE;
+      renderY = Math.round(renderY / GRID_SIZE) * GRID_SIZE;
 
       processed.push({
         rawX,
@@ -627,7 +670,7 @@ export function ZonesClient() {
     }
 
     return processed;
-  }, [zones, localOffsets]);
+  }, [zones, localOffsets, mapWidth]);
 
   const selectedLayoutZone = layoutZones.find((lz) => lz.zone.id === selectedId) ?? null;
   const selectedZone = selectedLayoutZone?.zone ?? null;
@@ -636,11 +679,19 @@ export function ZonesClient() {
     onSuccess: () => {
       setLocalOffsets({});
       refresh();
+      setToastMsg({ type: "success", message: "Layout saved successfully" });
+      setTimeout(() => setToastMsg(null), 3000);
+    },
+    onError: (err) => {
+      console.error("[bulkUpdate error]", err);
+      setToastMsg({ type: "error", message: "Failed to save layout" });
+      setTimeout(() => setToastMsg(null), 3000);
     }
   });
 
   async function handleSaveLayout() {
     setSavingLayout(true);
+    setToastMsg(null);
     const moved = layoutZones.filter(lz => lz.rawX !== lz.renderX || lz.rawY !== lz.renderY);
     const updates = moved.map(lz => ({
       id: lz.zone.id,
@@ -649,8 +700,19 @@ export function ZonesClient() {
       width: lz.renderW,
       height: lz.renderH,
     }));
+    
+    console.log("[handleSaveLayout] payload sent:", updates);
+    
     if (updates.length > 0) {
-      await bulkUpdate.mutateAsync(updates);
+      try {
+        const response = await bulkUpdate.mutateAsync(updates);
+        console.log("[handleSaveLayout] response received:", response);
+      } catch (err) {
+        console.error("[handleSaveLayout] mutation error:", err);
+      }
+    } else {
+      setToastMsg({ type: "success", message: "Layout saved successfully" });
+      setTimeout(() => setToastMsg(null), 3000);
     }
     setSavingLayout(false);
   }
@@ -673,11 +735,22 @@ export function ZonesClient() {
   return (
     <div className="flex h-full flex-col">
       {/* ── Page header ── */}
-      <div className="flex shrink-0 items-center justify-between border-b border-border px-5 py-3">
+      <div className="flex shrink-0 items-center justify-between border-b border-border px-5 py-3 relative">
+        {/* Simple Toast */}
+        {toastMsg && (
+          <div className={`absolute top-full mt-2 left-1/2 -translate-x-1/2 px-4 py-2 rounded shadow-lg border text-xs z-50 transition-all ${
+            toastMsg.type === "success" 
+              ? "bg-logistics-green/10 border-logistics-green/30 text-logistics-green" 
+              : "bg-destructive/10 border-destructive/30 text-destructive"
+          }`}>
+            {toastMsg.message}
+          </div>
+        )}
+        
         <div className="flex items-center gap-3">
           <Map className="h-4 w-4 text-logistics-cyan" />
           <div>
-            <h1 className="text-[14px] font-medium tracking-tight text-foreground">Facility Zones</h1>
+            <h1 className="text-[14px] font-medium tracking-tight text-foreground">Facility Layout</h1>
             <p className="text-[12px] text-muted-foreground/80 tabular-nums">
               {zones?.filter((z) => z.isActive).length ?? 0} active ·{" "}
               {zones?.length ?? 0} total
@@ -702,20 +775,6 @@ export function ZonesClient() {
               {savingLayout ? "Saving..." : hasCollisions ? "Resolve Overlaps" : "Save Layout"}
             </button>
           )}
-
-          <button
-            type="button"
-            onClick={() => setDebugMode(!debugMode)}
-            className={`flex items-center gap-1.5 rounded-md border px-3 py-1.5 text-[12px] font-medium tracking-tight transition ${
-              debugMode
-                ? "border-logistics-amber bg-logistics-amber/10 text-logistics-amber"
-                : "border-border bg-card text-muted-foreground hover:bg-accent hover:text-foreground"
-            }`}
-            title="Toggle Debug Layout Engine"
-          >
-            <Bug className="h-3.5 w-3.5" />
-            Debug Mode
-          </button>
 
           {/* View toggle */}
           <div className="flex items-center rounded-md border border-border bg-card p-0.5">
@@ -788,24 +847,27 @@ export function ZonesClient() {
             /* ── TACTICAL MAP VIEW ── */
             <div
               ref={mapRef}
-              className={`relative min-h-full min-w-full ${debugMode ? "" : "grid-dot-bg"}`}
+              className="relative min-h-full min-w-full overflow-hidden grid-dot-bg"
               style={{
                 width: "100%",
                 height: "max(100%, 650px)",
-                ...(debugMode
-                  ? {
-                      backgroundImage:
-                        "linear-gradient(to right, var(--border) 1px, transparent 1px), linear-gradient(to bottom, var(--border) 1px, transparent 1px)",
-                      backgroundSize: `${GRID_SIZE}px ${GRID_SIZE}px`,
-                      backgroundPosition: "0 0",
-                    }
-                  : {}),
               }}
               onClick={(e) => {
                 if (e.target === e.currentTarget) setSelectedId(null);
               }}
             >
-              {/* Map label */}
+              {/* Warning Banner for Collisions */}
+              {hasCollisions && (
+                <div className="absolute top-4 left-1/2 -translate-x-1/2 z-50 rounded-sm border border-destructive/50 bg-destructive/10 px-4 py-2 backdrop-blur-md shadow-xl text-[12px] font-medium text-destructive flex items-center gap-2">
+                  <span className="relative flex h-2 w-2">
+                    <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-destructive opacity-40" />
+                    <span className="relative inline-flex h-2 w-2 rounded-full bg-destructive" />
+                  </span>
+                  Resolve overlapping zones before saving
+                </div>
+              )}
+
+              {/* Grid axes overlay for debug */}
               <div className="absolute left-4 top-4 flex items-center gap-1.5 rounded border border-border bg-card/85 px-2.5 py-1.5 text-[10px] text-muted-foreground backdrop-blur-sm z-30 font-mono tracking-widest uppercase">
                 <Grid3X3 className="h-3.5 w-3.5 text-logistics-cyan animate-pulse" />
                 Facility Floor Plan
@@ -830,30 +892,11 @@ export function ZonesClient() {
                 </div>
               )}
 
-              {/* Debug Mode: Offset vectors */}
-              {debugMode && (
-                <svg className="absolute inset-0 pointer-events-none w-full h-full z-0 overflow-visible">
-                  {layoutZones.map(lz => {
-                    const snappedRawX = Math.round(lz.rawX / GRID_SIZE) * GRID_SIZE;
-                    const snappedRawY = Math.round(lz.rawY / GRID_SIZE) * GRID_SIZE;
-                    if (snappedRawX === lz.renderX && snappedRawY === lz.renderY) return null;
-                    return (
-                      <g key={`debug-vector-${lz.zone.id}`}>
-                        <rect x={snappedRawX} y={snappedRawY} width={lz.renderW} height={lz.renderH} fill="none" stroke="var(--logistics-red)" strokeWidth="1" strokeDasharray="4 4" className="opacity-40" />
-                        <line x1={snappedRawX + lz.renderW/2} y1={snappedRawY + lz.renderH/2} x2={lz.renderX + lz.renderW/2} y2={lz.renderY + lz.renderH/2} stroke="var(--logistics-amber)" strokeWidth="2" strokeDasharray="4 4" />
-                        <circle cx={lz.renderX + lz.renderW/2} cy={lz.renderY + lz.renderH/2} r="4" fill="var(--logistics-amber)" />
-                      </g>
-                    );
-                  })}
-                </svg>
-              )}
-
               {layoutZones.map((lz) => (
                 <ZoneBlock
                   key={lz.zone.id}
                   layoutZone={lz}
                   selected={selectedId === lz.zone.id}
-                  debugMode={debugMode}
                   onClick={() => setSelectedId(selectedId === lz.zone.id ? null : lz.zone.id)}
                   onPositionChange={handlePositionChange}
                 />

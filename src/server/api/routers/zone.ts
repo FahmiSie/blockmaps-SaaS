@@ -111,7 +111,7 @@ export const zoneRouter = createTRPCRouter({
     }),
 
   // ── BULK UPSERT POSITIONS (drag-and-drop save) ────────────
-  bulkUpdatePositions: adminProcedure
+  bulkUpdatePositions: companyProcedure
     .input(
       z.array(
         z.object({

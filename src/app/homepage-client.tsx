@@ -23,6 +23,20 @@ function TacticalMapPreview() {
         0,800
       </div>
 
+      {/* Value Annotations (Floating) */}
+      <div className="absolute left-8 top-16 flex items-center gap-2 rounded-full border border-border/40 bg-background/80 px-3 py-1.5 shadow-sm backdrop-blur-md">
+        <span className="text-[10px]">📦</span>
+        <span className="font-mono text-[9px] uppercase tracking-widest text-muted-foreground">Track inventory across facility zones</span>
+      </div>
+      <div className="absolute right-8 top-16 flex items-center gap-2 rounded-full border border-border/40 bg-background/80 px-3 py-1.5 shadow-sm backdrop-blur-md">
+        <span className="text-[10px]">🚚</span>
+        <span className="font-mono text-[9px] uppercase tracking-widest text-muted-foreground">Monitor deliveries in real time</span>
+      </div>
+      <div className="absolute bottom-6 left-[28%] flex items-center gap-2 rounded-full border border-border/40 bg-background/80 px-3 py-1.5 shadow-sm backdrop-blur-md">
+        <span className="text-[10px]"></span>
+        <span className="font-mono text-[9px] uppercase tracking-widest text-muted-foreground">View operational activity instantly</span>
+      </div>
+
       {/* Floor plan label */}
       <div className="absolute left-1/2 top-4 flex -translate-x-1/2 items-center gap-2 rounded-sm border border-border/50 bg-background/80 px-3 py-1.5 backdrop-blur-md">
         <span className="relative flex h-1.5 w-1.5">
@@ -30,7 +44,7 @@ function TacticalMapPreview() {
           <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-logistics-cyan" />
         </span>
         <span className="font-mono text-[9px] uppercase tracking-widest text-muted-foreground">
-          Facility Core — Operational
+          FACILITY OVERVIEW
         </span>
       </div>
 
@@ -74,6 +88,12 @@ function TacticalMapPreview() {
         <circle cx="900" cy="360" r="2" fill="var(--logistics-amber)" opacity="0.6" />
       </svg>
 
+      {/* Delivery Route Annotation */}
+      <div className="absolute text-center" style={{ left: 340, top: 165, width: 160 }}>
+        <div className="font-mono text-[9px] uppercase tracking-widest text-muted-foreground">Movement between facility zones</div>
+        <div className="font-mono text-[9px] uppercase tracking-widest text-muted-foreground/50 mt-1">↓</div>
+      </div>
+
       {/* Zone: Raw Material */}
       <div
         className="absolute flex flex-col justify-between rounded-sm border p-4 transition-colors hover:bg-logistics-amber/5"
@@ -104,6 +124,12 @@ function TacticalMapPreview() {
           </div>
           <p className="font-mono text-[9px] uppercase tracking-widest text-muted-foreground/40 tabular-nums">80,120 · 240×160</p>
         </div>
+      </div>
+      
+      {/* Annotation for Raw Material Zone */}
+      <div className="absolute text-center" style={{ left: 80, top: 290, width: 240 }}>
+        <div className="font-mono text-[9px] uppercase tracking-widest text-muted-foreground/50 mb-1">↓</div>
+        <div className="font-mono text-[9px] uppercase tracking-widest text-muted-foreground">Where incoming inventory is received</div>
       </div>
 
       {/* Zone: Production */}
@@ -138,6 +164,12 @@ function TacticalMapPreview() {
         </div>
       </div>
 
+      {/* Annotation for Production Area */}
+      <div className="absolute text-center" style={{ left: 520, top: 290, width: 240 }}>
+        <div className="font-mono text-[9px] uppercase tracking-widest text-muted-foreground/50 mb-1">↓</div>
+        <div className="font-mono text-[9px] uppercase tracking-widest text-muted-foreground">Items are processed here</div>
+      </div>
+
       {/* Zone: Finished Goods */}
       <div
         className="absolute flex flex-col justify-between rounded-sm border p-4 transition-colors hover:bg-logistics-green/5"
@@ -169,30 +201,44 @@ function TacticalMapPreview() {
         </div>
       </div>
 
-      {/* Active delivery badge */}
-      <div
-        className="absolute flex items-center gap-2.5 rounded-sm border border-border/80 bg-background/90 px-3 py-2 shadow-xl backdrop-blur-sm"
-        style={{ left: 80, top: 380 }}
-      >
-        <div className="h-1.5 w-1.5 animate-pulse rounded-full bg-logistics-green" />
-        <span className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground">
-          <span className="text-foreground">DEL-0042</span> · A-01 → C-01 · 240 units
-        </span>
+      {/* Annotation for Storage Area (Finished Goods) */}
+      <div className="absolute text-center" style={{ left: 780, top: 460, width: 200 }}>
+        <div className="font-mono text-[9px] uppercase tracking-widest text-muted-foreground/50 mb-1">↓</div>
+        <div className="font-mono text-[9px] uppercase tracking-widest text-muted-foreground">Inventory is stored and tracked</div>
       </div>
 
-      {/* Telemetry panel bottom right */}
+      {/* Active delivery badge */}
+      <div
+        className="absolute flex items-start gap-2.5 rounded-sm border border-border/80 bg-background/90 px-3 py-2 shadow-xl backdrop-blur-sm"
+        style={{ left: 80, top: 380 }}
+      >
+        <div className="mt-1 h-1.5 w-1.5 animate-pulse shrink-0 rounded-full bg-logistics-green" />
+        <div className="flex flex-col">
+          <span className="font-mono text-[10px] uppercase tracking-widest text-foreground font-medium mb-1">
+            Delivery in Progress
+          </span>
+          <span className="font-mono text-[9px] uppercase tracking-widest text-muted-foreground/80">
+            Raw Material → Production
+          </span>
+          <span className="font-mono text-[9px] uppercase tracking-widest text-muted-foreground/80 mt-0.5">
+            240 Units Moving
+          </span>
+        </div>
+      </div>
+
+      {/* Live Activity panel bottom right */}
       <div
         className="absolute bottom-6 right-6 space-y-2 rounded-sm border border-border/80 bg-background/90 p-4 shadow-xl backdrop-blur-sm"
         style={{ width: 220 }}
       >
         <p className="mb-3 font-mono text-[9px] uppercase tracking-widest text-muted-foreground/60">
-          Live Telemetry
+          Live Activity
         </p>
         {[
-          { label: "Active Nodes", value: "4", unit: "" },
-          { label: "In Transit", value: "3", unit: "routes" },
-          { label: "Throughput", value: "840", unit: "u/hr" },
-          { label: "System Load", value: "12", unit: "%" },
+          { label: "Active Zones", value: "4", unit: "" },
+          { label: "Items in Transit", value: "240", unit: "units" },
+          { label: "Today's Deliveries", value: "12", unit: "routes" },
+          { label: "Warehouse Usage", value: "84", unit: "%" },
         ].map((row) => (
           <div key={row.label} className="flex items-center justify-between">
             <span className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground/80">{row.label}</span>
@@ -226,12 +272,12 @@ function Navbar({ scrolled }: { scrolled: boolean }) {
           ? "1px solid var(--border)"
           : "1px solid transparent",
         background: scrolled
-          ? "color-mix(in oklch, var(--background) 80%, transparent)"
+          ? "rgba(10, 10, 10, 0.85)"
           : "transparent",
-        backdropFilter: scrolled ? "blur(16px)" : "none",
+        backdropFilter: scrolled ? "blur(12px)" : "none",
       }}
     >
-      <div className="mx-auto flex h-16 max-w-[1600px] items-center justify-between px-8">
+      <div className="mx-auto flex h-[60px] max-w-[1600px] items-center justify-between px-8">
         {/* Logo */}
         <div className="flex items-center gap-3">
           <div className="flex h-6 w-6 items-center justify-center">
@@ -250,33 +296,39 @@ function Navbar({ scrolled }: { scrolled: boolean }) {
           </span>
         </div>
 
-        {/* Nav links */}
-        <nav className="hidden items-center gap-8 md:flex">
-          {["Features", "Workflow", "Architecture"].map((item) => (
-            <a
-              key={item}
-              href={`#${item.toLowerCase()}`}
-              className="text-[12px] font-medium text-muted-foreground transition-colors hover:text-foreground"
-            >
-              {item}
-            </a>
-          ))}
-        </nav>
+        {/* Right Side: Navigation & Auth */}
+        <div className="flex items-center gap-6">
+          {/* Nav links */}
+          <nav className="hidden items-center gap-6 md:flex">
+            {["Features", "Workflow", "Architecture"].map((item) => (
+              <a
+                key={item}
+                href={`#${item.toLowerCase()}`}
+                className="text-[14px] font-normal text-[#9ca3af] transition-colors hover:text-white"
+              >
+                {item}
+              </a>
+            ))}
+          </nav>
 
-        {/* CTA buttons */}
-        <div className="flex items-center gap-4">
-          <a
-            href="/login"
-            className="text-[12px] font-medium text-muted-foreground transition-colors hover:text-foreground"
-          >
-            Log in
-          </a>
-          <a
-            href="/register"
-            className="flex h-8 items-center justify-center rounded-sm bg-foreground px-4 text-[12px] font-medium text-background transition-all hover:bg-foreground/90"
-          >
-            Sign Up
-          </a>
+          {/* Divider */}
+          <div className="hidden h-4 w-px bg-white/10 md:block" />
+
+          {/* CTA buttons */}
+          <div className="flex items-center gap-6">
+            <a
+              href="/login"
+              className="text-[14px] font-normal text-[#9ca3af] transition-colors hover:text-white"
+            >
+              Log in
+            </a>
+            <a
+              href="/register"
+              className="flex h-8 items-center justify-center rounded-full bg-white px-4 text-[14px] font-normal text-black transition-all hover:bg-white/90"
+            >
+              Sign up
+            </a>
+          </div>
         </div>
       </div>
     </header>

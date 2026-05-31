@@ -132,7 +132,7 @@ export async function updateZoneAction(
 export async function bulkUpdateZonePositionsAction(
   positions: z.infer<typeof BulkPositionSchema>,
 ): Promise<ActionResult<{ updated: number }>> {
-  const ctx = await getAdminContext();
+  const ctx = await getCompanyContext();
   if (!ctx) return { success: false, error: "Unauthorized." };
 
   const parsed = BulkPositionSchema.safeParse(positions);
