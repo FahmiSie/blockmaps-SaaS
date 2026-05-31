@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useState } from "react";
-import { ArrowRight, Loader2, ArrowLeft, MailCheck } from "lucide-react";
+import { ArrowRight, Loader2, ArrowLeft, CheckCircle2 } from "lucide-react";
 import { registerAction } from "@/server/actions/users.action";
 
 export default function RegisterPage() {
@@ -66,14 +66,14 @@ export default function RegisterPage() {
           {success ? (
             <div className="mb-10 text-center">
               <div className="mx-auto mb-6 flex h-16 w-16 items-center justify-center rounded-full bg-logistics-green/10 text-logistics-green">
-                <MailCheck className="h-8 w-8" />
+                <CheckCircle2 className="h-8 w-8" />
               </div>
               <h2 className="text-[24px] font-medium tracking-tight text-foreground">
-                Check Your Email
+                Account Created
               </h2>
               <p className="mt-3 text-[14px] leading-relaxed text-muted-foreground">
-                We've sent a verification link to <br/>
-                <span className="font-medium text-foreground">{email}</span>
+                Your account has been created successfully. <br/>
+                You can now sign in using your credentials.
               </p>
               
               <div className="mt-8 space-y-3">
@@ -81,7 +81,7 @@ export default function RegisterPage() {
                   href="/login"
                   className="flex w-full items-center justify-center gap-2 rounded-sm bg-foreground px-4 py-2.5 text-[13px] font-medium text-background transition-all hover:bg-foreground/90"
                 >
-                  Back to Sign In
+                  Proceed to Sign In
                 </Link>
               </div>
             </div>

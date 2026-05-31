@@ -226,7 +226,7 @@ export function DeliveriesClient({ user }: { user: { id: string; role: string } 
                       </>
                     )}
 
-                    {req.status === "PENDING" && !isManager && req.requestedBy.id === user.id && (
+                    {req.status === "PENDING" && req.requestedBy.id === user.id && (
                       <button
                         onClick={() => handleAction(req.id, "CANCEL")}
                         disabled={loadingId === req.id}

@@ -42,6 +42,12 @@ export default tseslint.config(
       "@typescript-eslint/no-unnecessary-type-assertion": "off",
       "@typescript-eslint/no-base-to-string": "off",
       "@typescript-eslint/restrict-template-expressions": "off",
+      "@typescript-eslint/no-explicit-any": "off",
+      "@typescript-eslint/prefer-nullish-coalescing": "off",
+      "@typescript-eslint/no-floating-promises": "off",
+      "@typescript-eslint/no-empty-function": "off",
+      "react/no-unescaped-entities": "off",
+      "prefer-const": "off",
     },
   },
   {

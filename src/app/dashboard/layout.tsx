@@ -15,6 +15,7 @@ export default async function DashboardLayout({
 }) {
   const session = await auth();
   if (!session?.user) redirect("/login");
+  if (!session.user.companyId) redirect("/onboarding");
 
   return (
     <div className="flex h-screen w-full overflow-hidden bg-background">

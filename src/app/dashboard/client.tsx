@@ -102,10 +102,10 @@ function PipelineStep({
 export function DashboardClient({ user }: DashboardClientProps) {
   const { data: summary, isLoading: summaryLoading } =
     api.company.dashboardSummary.useQuery();
-  const { data: deliveries, isLoading: deliveriesLoading } =
-    api.delivery.list.useQuery({ page: 1, limit: 8, status: undefined });
-  const { data: zones, isLoading: zonesLoading } =
-    api.zone.list.useQuery({ includeInactive: false });
+  const { data: deliveryStats, isLoading: deliveriesLoading } =
+    api.delivery.stats.useQuery();
+  const { data: zoneStats, isLoading: zonesLoading } =
+    api.zone.stats.useQuery();
 
   const greeting =
     user.role === "ADMIN" || user.role === "MANAGER"
@@ -168,21 +168,18 @@ export function DashboardClient({ user }: DashboardClientProps) {
               value={summary?.users ?? 0}
               icon={Users}
               iconColor="var(--text-secondary)"
-              sparkline={[1, 1, 1, 1, 1, summary?.users ?? 1, summary?.users ?? 1]}
             />
             <MetricCard
               label="Zones"
               value={summary?.activeZones ?? 0}
               icon={Map}
               iconColor="var(--accent-prod)"
-              sparkline={[2, 2, 2, 2, summary?.activeZones ?? 2, summary?.activeZones ?? 2]}
             />
             <MetricCard
               label="Items"
               value={summary?.items ?? 0}
               icon={Package}
               iconColor="var(--accent-ship)"
-              sparkline={[0, 2, 4, 3, 6, 8, summary?.items ?? 0]}
             />
             <MetricCard
               label="Pending"
@@ -298,7 +295,7 @@ export function DashboardClient({ user }: DashboardClientProps) {
                       />
                     ))}
                   </div>
-                ) : !deliveries?.requests.length ? (
+                ) : !deliveryStats?.recentActivity?.length ? (
                   <EmptyState
                     icon={Truck}
                     title="No deliveries yet"
@@ -310,7 +307,7 @@ export function DashboardClient({ user }: DashboardClientProps) {
                   />
                 ) : (
                   <div>
-                    {deliveries.requests.map((d) => (
+                    {deliveryStats.recentActivity.map((d: any) => (
                       <div
                         key={d.id}
                         className="flex items-center gap-4 px-5 transition-all duration-100"
@@ -368,7 +365,7 @@ export function DashboardClient({ user }: DashboardClientProps) {
                             className="w-16 text-right tabular-nums"
                             style={{ color: "var(--text-secondary)" }}
                           >
-                            {d.items.length} item{d.items.length !== 1 ? "s" : ""}
+                            {d.items?.length ?? 0} item{(d.items?.length ?? 0) !== 1 ? "s" : ""}
                           </span>
                           <div className="w-28 text-right">
                             <StatusBadge status={d.status} />
@@ -447,7 +444,7 @@ export function DashboardClient({ user }: DashboardClientProps) {
                       />
                     ))}
                   </div>
-                ) : !zones?.length ? (
+                ) : !zoneStats?.length ? (
                   <EmptyState
                     icon={Map}
                     title="No zones mapped"
@@ -459,9 +456,9 @@ export function DashboardClient({ user }: DashboardClientProps) {
                   />
                 ) : (
                   <div>
-                    {zones.map((z) => (
+                    {zoneStats.map((z: any, idx: number) => (
                       <div
-                        key={z.id}
+                        key={`${z.type}-${idx}`}
                         className="flex items-center justify-between px-5 transition-all duration-100"
                         style={{
                           height: "52px",
@@ -476,7 +473,7 @@ export function DashboardClient({ user }: DashboardClientProps) {
                             className="font-medium"
                             style={{ color: "var(--text-primary)", fontSize: "13px" }}
                           >
-                            {z.name}
+                            {z.type.replace("_", " ")}
                           </span>
                           <ZoneBadge type={z.type} />
                         </div>
@@ -489,7 +486,7 @@ export function DashboardClient({ user }: DashboardClientProps) {
                               letterSpacing: "-0.01em",
                             }}
                           >
-                            {z._count.inventory}
+                            {z._count ?? 0}
                           </p>
                           <p
                             className="text-label"
@@ -498,7 +495,7 @@ export function DashboardClient({ user }: DashboardClientProps) {
                               color: "var(--text-tertiary)",
                             }}
                           >
-                            Items
+                            Zones
                           </p>
                         </div>
                       </div>

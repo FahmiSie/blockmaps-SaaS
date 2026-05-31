@@ -3,8 +3,7 @@
 import Link from "next/link";
 import { signIn } from "next-auth/react";
 import { useState } from "react";
-import { ArrowRight, Loader2, ArrowLeft, Mail } from "lucide-react";
-import { resendVerificationAction } from "@/server/actions/users.action";
+import { ArrowRight, Loader2, ArrowLeft } from "lucide-react";
 
 export default function LoginPage() {
   const [email, setEmail] = useState("");
@@ -12,15 +11,10 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
-  const [isUnverified, setIsUnverified] = useState(false);
-  const [resendStatus, setResendStatus] = useState<"idle" | "loading" | "success" | "error">("idle");
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     setError("");
-    setIsUnverified(false);
-    setResendStatus("idle");
 
     try {
       const res = await signIn("credentials", {
@@ -30,12 +24,7 @@ export default function LoginPage() {
       });
 
       if (res?.error) {
-        if (res.error === "EMAIL_NOT_VERIFIED") {
-          setIsUnverified(true);
-          setError("Your email address is not verified.");
-        } else {
-          setError("Invalid email or password.");
-        }
+        setError("Invalid email or password.");
         setLoading(false);
       } else if (res?.ok) {
         window.location.href = "/dashboard";
@@ -43,17 +32,6 @@ export default function LoginPage() {
     } catch (err) {
       setError("An unexpected error occurred. Please try again.");
       setLoading(false);
-    }
-  };
-
-  const handleResend = async () => {
-    setResendStatus("loading");
-    const result = await resendVerificationAction(email);
-    if (result.success) {
-      setResendStatus("success");
-    } else {
-      setResendStatus("error");
-      setError(result.error);
     }
   };
 
@@ -156,30 +134,6 @@ export default function LoginPage() {
                   </>
                 )}
               </button>
-              
-              {isUnverified && (
-                <div className="mt-4 rounded-sm border border-border bg-accent/30 p-4 text-center">
-                  <p className="mb-3 text-[13px] text-muted-foreground">
-                    You need to verify your email address before you can sign in.
-                  </p>
-                  <button
-                    type="button"
-                    onClick={handleResend}
-                    disabled={resendStatus === "loading" || resendStatus === "success"}
-                    className="flex w-full items-center justify-center gap-2 rounded-sm border border-border bg-background px-4 py-2 text-[13px] font-medium text-foreground transition-all hover:bg-accent/50 disabled:opacity-50"
-                  >
-                    {resendStatus === "loading" ? (
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                    ) : resendStatus === "success" ? (
-                      "Verification Email Sent!"
-                    ) : (
-                      <>
-                        <Mail className="h-3.5 w-3.5" /> Resend Verification Email
-                      </>
-                    )}
-                  </button>
-                </div>
-              )}
             </form>
 
             <div className="my-6 flex items-center">

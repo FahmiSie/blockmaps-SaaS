@@ -312,6 +312,7 @@ export const deliveryRouter = createTRPCRouter({
           fromZone: { select: { id: true, name: true } },
           toZone: { select: { id: true, name: true } },
           requestedBy: { select: { id: true, name: true } },
+          items: { select: { id: true } },
         },
       }),
     ]);
