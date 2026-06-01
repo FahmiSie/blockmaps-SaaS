@@ -6,6 +6,8 @@ import {
   companyProcedure,
   protectedProcedure,
 } from "@/server/api/trpc";
+import { uploadUserAvatar } from "@/server/actions/upload.action";
+import bcrypt from "bcryptjs";
 
 export const userRouter = createTRPCRouter({
   // ── GET SELF ──────────────────────────────────────────────
@@ -19,7 +21,9 @@ export const userRouter = createTRPCRouter({
         image: true,
         role: true,
         createdAt: true,
-        company: { select: { id: true, name: true, slug: true } },
+        company: {
+          select: { id: true, name: true, slug: true, logoUrl: true },
+        },
       },
     });
     if (!user) throw new TRPCError({ code: "NOT_FOUND" });
@@ -69,7 +73,13 @@ export const userRouter = createTRPCRouter({
         ctx.prisma.user.count({ where }),
       ]);
 
-      return { users, total, page, limit, totalPages: Math.ceil(total / limit) };
+      return {
+        users,
+        total,
+        page,
+        limit,
+        totalPages: Math.ceil(total / limit),
+      };
     }),
 
   // ── GET BY ID ─────────────────────────────────────────────
@@ -123,7 +133,6 @@ export const userRouter = createTRPCRouter({
     .input(
       z.object({
         name: z.string().min(1).max(100).optional(),
-        image: z.string().url().optional(),
       }),
     )
     .mutation(async ({ ctx, input }) => {
@@ -132,6 +141,79 @@ export const userRouter = createTRPCRouter({
         data: input,
         select: { id: true, name: true, email: true, image: true },
       });
+    }),
+  // ── UPDATE AVATAR ─────────────────────────────────────────
+  // Terima base64 dari client, upload ke Cloudinary, simpan URL ke DB
+  updateAvatar: protectedProcedure
+    .input(
+      z.object({
+        // base64 string dengan atau tanpa data URI prefix
+        // contoh: "data:image/png;base64,iVBORw0..." atau "iVBORw0..."
+        base64: z.string().min(1),
+      }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      const { url } = await uploadUserAvatar({
+        base64: input.base64,
+        userId: ctx.session.user.id,
+      });
+
+      return ctx.prisma.user.update({
+        where: { id: ctx.session.user.id },
+        data: { image: url },
+        select: { id: true, name: true, image: true },
+      });
+    }),
+
+  // ── CHANGE PASSWORD ───────────────────────────────────────
+  // Hanya untuk credentials user — OAuth user tidak punya password
+  changePassword: protectedProcedure
+    .input(
+      z.object({
+        currentPassword: z.string().min(1),
+        newPassword: z.string().min(8, "Password minimal 8 karakter").max(100),
+      }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      const user = await ctx.prisma.user.findUnique({
+        where: { id: ctx.session.user.id },
+        select: { password: true },
+      });
+
+      // OAuth user tidak punya password
+      if (!user?.password) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message:
+            "Akun ini menggunakan login Google. Ganti password tidak tersedia.",
+        });
+      }
+
+      const isValid = await bcrypt.compare(
+        input.currentPassword,
+        user.password,
+      );
+      if (!isValid) {
+        throw new TRPCError({
+          code: "UNAUTHORIZED",
+          message: "Password saat ini salah.",
+        });
+      }
+
+      if (input.currentPassword === input.newPassword) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "Password baru tidak boleh sama dengan password lama.",
+        });
+      }
+
+      const hashed = await bcrypt.hash(input.newPassword, 12);
+      await ctx.prisma.user.update({
+        where: { id: ctx.session.user.id },
+        data: { password: hashed },
+      });
+
+      return { success: true };
     }),
 
   // ── REMOVE FROM COMPANY ───────────────────────────────────
