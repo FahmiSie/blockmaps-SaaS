@@ -10,7 +10,6 @@ import {
   Box,
   MapPin,
   Barcode,
-  Layers,
 } from "lucide-react";
 import { createItemAction } from "@/server/actions/item.action";
 

@@ -29,7 +29,7 @@ export default function LoginPage() {
       } else if (res?.ok) {
         window.location.href = "/dashboard";
       }
-    } catch (err) {
+    } catch {
       setError("An unexpected error occurred. Please try again.");
       setLoading(false);
     }

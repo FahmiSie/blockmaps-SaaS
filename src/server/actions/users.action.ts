@@ -60,7 +60,22 @@ export async function registerAction(
   try {
     const existing = await prisma.user.findUnique({ where: { email } });
     if (existing) {
-      return { success: false, error: "Email already registered." };
+      if (existing.password) {
+        return { success: false, error: "Email already registered." };
+      }
+      
+      const hashed = await bcrypt.hash(password, 12);
+      const verifyToken = crypto.randomBytes(32).toString("hex");
+      const verifyTokenExp = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours
+
+      const user = await prisma.user.update({
+        where: { id: existing.id },
+        data: { name, password: hashed, verifyToken, verifyTokenExp },
+        select: { id: true },
+      });
+
+      console.log(`\n\n[DEV ONLY] Verify Email Link: http://localhost:3000/verify-email?token=${verifyToken}\n\n`);
+      return { success: true, data: user };
     }
 
     const hashed = await bcrypt.hash(password, 12);
@@ -160,7 +175,18 @@ export async function inviteUserAction(
 
   try {
     const target = await prisma.user.findUnique({ where: { email: parsed.data.email } });
-    if (!target) return { success: false, error: "No user found with that email." };
+    if (!target) {
+      const user = await prisma.user.create({
+        data: {
+          email: parsed.data.email,
+          companyId: actor.companyId,
+          role: parsed.data.role,
+        },
+        select: { id: true, name: true },
+      });
+      revalidatePath("/admin/users");
+      return { success: true, data: user };
+    }
     if (target.companyId) return { success: false, error: "User already belongs to a company." };
 
     const user = await prisma.user.update({

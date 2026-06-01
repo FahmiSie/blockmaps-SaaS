@@ -26,6 +26,7 @@ export const ROLE_ALLOWED_ROUTES: Record<Role, string[]> = {
     "/dashboard/analytics",
     "/dashboard/settings",
     "/dashboard/users",
+    "/dashboard/company",
   ],
   OPERATOR: [
     "/dashboard",
@@ -57,7 +58,7 @@ export const ROLE_PERMISSIONS = {
     canTransferOwnership: false,
     canDeleteCompany: false,
     canViewUsers: true,
-    canViewCompany: false,
+    canViewCompany: true,
   },
   OPERATOR: {
     canInviteUsers: false,

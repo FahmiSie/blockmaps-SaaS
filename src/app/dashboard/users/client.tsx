@@ -2,6 +2,7 @@
 
 import { api } from "@/trpc/react";
 import { useState } from "react";
+import Image from "next/image";
 import {
   Users, UserPlus, Search, Shield, X, Check,
   Loader2, MoreHorizontal, UserX, ChevronLeft, ChevronRight,
@@ -36,7 +37,7 @@ function RoleBadge({ role }: { role: string }) {
 function Avatar({ name, image, size = 32 }: { name?: string | null; image?: string | null; size?: number }) {
   const initials = (name ?? "?").split(" ").map(w => w[0]).join("").toUpperCase().slice(0, 2);
   return image ? (
-    <img src={image} alt={name ?? ""} className="rounded-full object-cover" style={{ width: size, height: size }} />
+    <Image src={image} alt={name ?? ""} width={size} height={size} unoptimized className="rounded-full object-cover" />
   ) : (
     <div className="flex items-center justify-center rounded-full text-[11px] font-bold flex-shrink-0"
       style={{ width: size, height: size, background: "var(--bg-overlay)", color: "var(--text-secondary)", border: "1px solid var(--border-base)" }}>

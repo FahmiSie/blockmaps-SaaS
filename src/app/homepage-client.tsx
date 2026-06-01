@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 
 // ─── Tactical Map Preview SVG ──────────────────────────────────
 function TacticalMapPreview() {
@@ -551,7 +551,7 @@ export function HomepageClient() {
       </section>
 
       {/* ── STATS BAR ── */}
-      <section className="border-y border-border bg-card/30">
+      <section id="architecture" className="border-y border-border bg-card/30">
         <div className="mx-auto max-w-[1600px] px-8 py-10">
           <div className="flex flex-wrap items-center justify-between gap-12 divide-x divide-border/0 md:divide-border/50">
             <StatItem value="99.9%" label="System Reliability" />

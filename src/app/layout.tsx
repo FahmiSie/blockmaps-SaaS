@@ -4,6 +4,7 @@ import { type Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 
 import { TRPCReactProvider } from "@/trpc/react";
+import { Toaster } from "sonner";
 
 export const metadata: Metadata = {
   title: "BlockMaps — Industrial Logistics Operating System",
@@ -29,6 +30,7 @@ export default function RootLayout({
     <html lang="en" className={`${geist.variable} ${geistMono.variable} dark`} suppressHydrationWarning>
       <body className="min-h-screen bg-background text-foreground antialiased">
         <TRPCReactProvider>{children}</TRPCReactProvider>
+        <Toaster theme="dark" position="top-right" richColors />
       </body>
     </html>
   );

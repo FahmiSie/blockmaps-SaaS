@@ -121,14 +121,29 @@ export const authConfig: AuthOptions = {
 
   callbacks: {
     async jwt({ token, user, trigger, session }) {
+      // On initial sign-in, populate token from the user object
       if (user) {
         token.id = user.id;
         token.role = user.role;
         token.companyId = user.companyId;
       }
 
-      // Panggil update() dari client setelah user create/join company
-      // Contoh: await update({ companyId: newId, role: "ADMIN" })
+      // Always re-fetch role and companyId from DB on every token refresh
+      // This ensures that role changes are reflected immediately without
+      // requiring the user to sign out and sign back in.
+      if (token.id) {
+        const dbUser = await prisma.user.findUnique({
+          where: { id: token.id },
+          select: { role: true, companyId: true },
+        });
+        if (dbUser) {
+          token.role = dbUser.role;
+          token.companyId = dbUser.companyId;
+        }
+      }
+
+      // Allow client-side session.update() calls to patch the token as well
+      // (used when creating/joining a company via onboarding)
       if (trigger === "update" && session) {
         if (session.companyId !== undefined) token.companyId = session.companyId;
         if (session.role !== undefined) token.role = session.role;

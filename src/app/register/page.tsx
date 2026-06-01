@@ -32,7 +32,7 @@ export default function RegisterPage() {
         setError(res.error || "Failed to create account.");
         setLoading(false);
       }
-    } catch (err) {
+    } catch {
       setError("An unexpected error occurred. Please try again.");
       setLoading(false);
     }

@@ -1,7 +1,10 @@
 "use client";
 
 import { api } from "@/trpc/react";
-import { useState } from "react";
+import { useState, useRef } from "react";
+import { toast } from "sonner";
+import { fileToBase64 } from "@/lib/utils";
+import Image from "next/image";
 import {
   Building2, Save, Loader2, Check, AlertTriangle,
   Users, Map, Package, Truck, X, Shield, LogOut, Trash2,
@@ -161,6 +164,61 @@ export function CompanyClient({ currentUser }: { currentUser: CurrentUser }) {
     },
   });
 
+  const updateLogo = api.company.updateLogo.useMutation();
+  const removeLogo = api.company.removeLogo.useMutation();
+
+  const [isLogoUploading, setIsLogoUploading] = useState(false);
+  const [isLogoRemoving, setIsLogoRemoving] = useState(false);
+  const logoInputRef = useRef<HTMLInputElement>(null);
+
+  function validateImageFile(file: File): string | null {
+    const allowedTypes = ['image/jpeg', 'image/png', 'image/webp'];
+    if (!allowedTypes.includes(file.type)) {
+      return 'Only JPG, PNG, or WebP files are allowed.';
+    }
+    if (file.size > 2 * 1024 * 1024) {
+      return 'File size must be under 2MB.';
+    }
+    return null;
+  }
+
+  async function handleLogoUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const error = validateImageFile(file);
+    if (error) {
+      toast.error(error);
+      return;
+    }
+
+    setIsLogoUploading(true);
+    try {
+      const base64 = await fileToBase64(file);
+      await updateLogo.mutateAsync({ base64 });
+      toast.success('Company logo updated.');
+      refetch();
+    } catch {
+      toast.error('Failed to upload logo. Please try again.');
+    } finally {
+      setIsLogoUploading(false);
+      e.target.value = '';
+    }
+  }
+
+  async function handleLogoRemove() {
+    setIsLogoRemoving(true);
+    try {
+      await removeLogo.mutateAsync();
+      toast.success('Company logo removed.');
+      refetch();
+    } catch {
+      toast.error('Failed to remove logo. Please try again.');
+    } finally {
+      setIsLogoRemoving(false);
+    }
+  }
+
   const handleSave = () => {
     const newName = name.trim() || company?.name;
     if (!newName) return;
@@ -205,10 +263,39 @@ export function CompanyClient({ currentUser }: { currentUser: CurrentUser }) {
         {/* ── Company Overview ── */}
         <SectionCard title="Company Information" sub="Basic details about your organization">
           <div className="flex items-start gap-8">
-            {/* Logo placeholder */}
-            <div className="flex h-20 w-20 flex-shrink-0 items-center justify-center rounded-md text-[28px] font-bold"
-              style={{ background: "var(--bg-overlay)", color: "var(--text-primary)", border: "1px solid var(--border-base)" }}>
-              {company.name.charAt(0).toUpperCase()}
+            <div className="flex flex-col gap-3">
+              <div className="flex h-16 w-16 flex-shrink-0 items-center justify-center rounded-md text-[24px] font-bold overflow-hidden"
+                style={{ background: "var(--bg-overlay)", color: "var(--text-primary)", border: "1px solid var(--border-base)" }}>
+                {company.logoUrl ? <Image src={company.logoUrl} alt="" width={64} height={64} unoptimized className="h-full w-full object-cover" /> : (company.name?.[0]?.toUpperCase() ?? "C")}
+              </div>
+              <div className="flex flex-col gap-2">
+                <input 
+                  type="file" 
+                  accept="image/jpeg, image/png, image/webp" 
+                  className="hidden" 
+                  ref={logoInputRef} 
+                  onChange={handleLogoUpload} 
+                />
+                <button 
+                  onClick={() => logoInputRef.current?.click()}
+                  disabled={isLogoUploading || !isAdmin}
+                  className="flex items-center justify-center gap-2 rounded-sm border px-3 py-1.5 text-[12px] font-medium transition-colors hover:bg-accent/50 disabled:opacity-50"
+                  style={{ borderColor: "var(--border-base)", color: "var(--text-primary)" }}>
+                  {isLogoUploading && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
+                  {isLogoUploading ? "Uploading..." : "Replace Logo"}
+                </button>
+                {company.logoUrl && isAdmin && (
+                  <button
+                    onClick={handleLogoRemove}
+                    disabled={isLogoRemoving}
+                    className="flex items-center justify-center gap-2 rounded-sm px-3 py-1.5 text-[12px] font-medium transition-colors hover:bg-red-500/10 disabled:opacity-50"
+                    style={{ color: "#ef4444", background: "transparent" }}>
+                    {isLogoRemoving && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
+                    {isLogoRemoving ? "Removing..." : "Remove"}
+                  </button>
+                )}
+                <p className="text-[10px] text-center" style={{ color: "var(--text-tertiary)" }}>JPG, PNG, WebP. Max 2MB.</p>
+              </div>
             </div>
             <div className="flex-1 grid grid-cols-1 gap-5 sm:grid-cols-2">
               <FormField label="Company Name">
@@ -219,7 +306,7 @@ export function CompanyClient({ currentUser }: { currentUser: CurrentUser }) {
                   readOnly={!isAdmin}
                 />
               </FormField>
-              <FormField label="Company ID" hint="Unique identifier — cannot be changed">
+              <FormField label="Company ID" hint="Unique identifier cannot be changed">
                 <TextInput value={company.id} readOnly mono />
               </FormField>
               <FormField label="Slug" hint="Used in URLs and references">

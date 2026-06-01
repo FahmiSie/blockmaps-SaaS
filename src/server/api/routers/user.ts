@@ -3,10 +3,11 @@ import { TRPCError } from "@trpc/server";
 import {
   createTRPCRouter,
   adminProcedure,
+  managerProcedure,
   companyProcedure,
   protectedProcedure,
 } from "@/server/api/trpc";
-import { uploadUserAvatar } from "@/server/actions/upload.action";
+import { uploadUserAvatar, deleteCloudinaryImage } from "@/server/actions/upload.action";
 import bcrypt from "bcryptjs";
 
 export const userRouter = createTRPCRouter({
@@ -21,6 +22,7 @@ export const userRouter = createTRPCRouter({
         image: true,
         role: true,
         createdAt: true,
+        companyId: true,
         company: {
           select: { id: true, name: true, slug: true, logoUrl: true },
         },
@@ -31,7 +33,7 @@ export const userRouter = createTRPCRouter({
   }),
 
   // ── LIST USERS IN COMPANY ────────────────────────────────
-  list: adminProcedure
+  list: managerProcedure
     .input(
       z.object({
         page: z.number().int().min(1).default(1),
@@ -103,7 +105,7 @@ export const userRouter = createTRPCRouter({
     }),
 
   // ── UPDATE ROLE ──────────────────────────────────────────
-  updateRole: adminProcedure
+  updateRole: managerProcedure
     .input(
       z.object({
         id: z.string().cuid(),
@@ -111,10 +113,27 @@ export const userRouter = createTRPCRouter({
       }),
     )
     .mutation(async ({ ctx, input }) => {
+      // Prevent non-admins from promoting users to ADMIN
+      if (input.role === "ADMIN" && ctx.role !== "ADMIN") {
+        throw new TRPCError({
+          code: "FORBIDDEN",
+          message: "Only Admins can promote users to Admin.",
+        });
+      }
+
       const target = await ctx.prisma.user.findFirst({
         where: { id: input.id, companyId: ctx.companyId },
       });
       if (!target) throw new TRPCError({ code: "NOT_FOUND" });
+      
+      // Prevent non-admins from modifying existing ADMIN users
+      if (target.role === "ADMIN" && ctx.role !== "ADMIN") {
+        throw new TRPCError({
+          code: "FORBIDDEN",
+          message: "Only Admins can modify Admin users.",
+        });
+      }
+
       if (target.id === ctx.session.user.id) {
         throw new TRPCError({
           code: "BAD_REQUEST",
@@ -164,6 +183,28 @@ export const userRouter = createTRPCRouter({
         select: { id: true, name: true, image: true },
       });
     }),
+
+  // ── REMOVE AVATAR ─────────────────────────────────────────
+  // Set image = null in DB, delete old Cloudinary asset
+  removeAvatar: protectedProcedure.mutation(async ({ ctx }) => {
+    const user = await ctx.prisma.user.findUnique({
+      where: { id: ctx.session.user.id },
+      select: { image: true },
+    });
+
+    // If user has a Cloudinary avatar, delete it from Cloudinary too
+    if (user?.image) {
+      // Cloudinary public_id for avatars is "flowgrid/avatars/<userId>"
+      const publicId = `flowgrid/avatars/${ctx.session.user.id}`;
+      await deleteCloudinaryImage(publicId);
+    }
+
+    return ctx.prisma.user.update({
+      where: { id: ctx.session.user.id },
+      data: { image: null },
+      select: { id: true, name: true, image: true },
+    });
+  }),
 
   // ── CHANGE PASSWORD ───────────────────────────────────────
   // Hanya untuk credentials user — OAuth user tidak punya password
@@ -237,8 +278,8 @@ export const userRouter = createTRPCRouter({
       });
     }),
 
-  // ── INVITE (assign companyId to existing user) ────────────
-  invite: adminProcedure
+  // ── INVITE (assign companyId to user / pre-create if not exists) ──
+  invite: managerProcedure
     .input(
       z.object({
         email: z.string().email(),
@@ -250,9 +291,13 @@ export const userRouter = createTRPCRouter({
         where: { email: input.email },
       });
       if (!target) {
-        throw new TRPCError({
-          code: "NOT_FOUND",
-          message: "No user found with that email.",
+        return ctx.prisma.user.create({
+          data: {
+            email: input.email,
+            companyId: ctx.companyId,
+            role: input.role,
+          },
+          select: { id: true, name: true, email: true, role: true },
         });
       }
       if (target.companyId) {

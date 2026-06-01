@@ -6,6 +6,7 @@ import {
   companyProcedure,
   protectedProcedure,
 } from "@/server/api/trpc";
+import { uploadCompanyLogo } from "@/server/actions/upload.action";
 
 export const companyRouter = createTRPCRouter({
   // ── GET CURRENT COMPANY ───────────────────────────────────
@@ -146,4 +147,30 @@ export const companyRouter = createTRPCRouter({
       },
     };
   }),
+
+  // ── UPDATE LOGO ───────────────────────────────────────────
+  updateLogo: adminProcedure
+    .input(z.object({ base64: z.string().min(1) }))
+    .mutation(async ({ ctx, input }) => {
+      const { url } = await uploadCompanyLogo({
+        base64: input.base64,
+        companyId: ctx.companyId,
+      });
+
+      return ctx.prisma.company.update({
+        where: { id: ctx.companyId },
+        data: { logoUrl: url },
+        select: { id: true, name: true, logoUrl: true },
+      });
+    }),
+
+  // ── REMOVE LOGO ───────────────────────────────────────────
+  removeLogo: adminProcedure
+    .mutation(async ({ ctx }) => {
+      return ctx.prisma.company.update({
+        where: { id: ctx.companyId },
+        data: { logoUrl: null },
+        select: { id: true, name: true, logoUrl: true },
+      });
+    }),
 });

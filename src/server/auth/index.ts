@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unsafe-assignment */
 // src/server/auth/index.ts
 import NextAuth, { getServerSession } from "next-auth";
 

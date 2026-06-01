@@ -1,7 +1,13 @@
 "use client";
 
 import { api } from "@/trpc/react";
-import { useState } from "react";
+import { useState, useRef } from "react";
+import { z } from "zod";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { toast } from "sonner";
+import { fileToBase64 } from "@/lib/utils";
+import Image from "next/image";
 import {
   User, Bell, Shield, Palette, Sliders,
   Camera, Check, Loader2, Eye, EyeOff, Save,
@@ -95,6 +101,9 @@ function ProfileTab() {
   const [saved, setSaved] = useState(false);
   const utils = api.useUtils();
 
+  const [isUploading, setIsUploading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
   const updateProfile = api.user.updateProfile.useMutation({
     onSuccess: () => {
       setSaved(true);
@@ -103,25 +112,97 @@ function ProfileTab() {
     },
   });
 
+  const updateAvatar = api.user.updateAvatar.useMutation();
+  const removeAvatar = api.user.removeAvatar.useMutation();
+
+  function validateImageFile(file: File): string | null {
+    const allowedTypes = ['image/jpeg', 'image/png', 'image/webp'];
+    if (!allowedTypes.includes(file.type)) {
+      return 'Only JPG, PNG, or WebP files are allowed.';
+    }
+    if (file.size > 2 * 1024 * 1024) {
+      return 'File size must be under 2MB.';
+    }
+    return null;
+  }
+
+  async function handleAvatarUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const error = validateImageFile(file);
+    if (error) {
+      toast.error(error);
+      return;
+    }
+
+    setIsUploading(true);
+    try {
+      const base64 = await fileToBase64(file);
+      await updateAvatar.mutateAsync({ base64 });
+      toast.success('Profile photo updated.');
+      await utils.user.me.invalidate();
+    } catch {
+      toast.error('Failed to upload photo. Please try again.');
+    } finally {
+      setIsUploading(false);
+      e.target.value = '';
+    }
+  }
+
+  async function handleRemoveAvatar() {
+    setIsUploading(true);
+    try {
+      await removeAvatar.mutateAsync();
+      toast.success('Profile photo removed.');
+      await utils.user.me.invalidate();
+    } catch {
+      toast.error('Failed to remove photo. Please try again.');
+    } finally {
+      setIsUploading(false);
+    }
+  }
+
   if (isLoading) return <div className="py-8 text-center text-[12px]" style={{ color: "var(--text-tertiary)" }}>Loading profile...</div>;
 
   const displayName = name || me?.name || "";
-  const initials = (me?.name ?? me?.email ?? "?").split(" ").map(w => w[0]).join("").toUpperCase().slice(0, 2);
+  const avatarUrl = me?.image ?? null;
+  const initials = me?.name?.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2) ?? '??';
   const roleBg: Record<string, string> = { ADMIN: "#0891b2", MANAGER: "#f59e0b", OPERATOR: "#6b7280" };
 
   return (
     <div>
       <Field label="Avatar" hint="Your profile photo">
         <div className="flex items-center gap-4">
-          <div className="flex h-16 w-16 items-center justify-center rounded-full text-[18px] font-bold"
+          <div className="flex h-16 w-16 items-center justify-center rounded-full text-[18px] font-bold overflow-hidden"
             style={{ background: "var(--bg-overlay)", color: "var(--text-primary)", border: "2px solid var(--border-base)" }}>
-            {me?.image ? <img src={me.image} alt="" className="h-16 w-16 rounded-full object-cover" /> : initials}
+            {avatarUrl ? <Image src={avatarUrl} alt="" width={64} height={64} unoptimized className="h-full w-full object-cover" /> : initials}
           </div>
-          <button className="flex items-center gap-2 rounded-sm border px-3 py-1.5 text-[12px] transition-colors hover:bg-accent/50"
+          <input 
+            type="file" 
+            accept="image/jpeg, image/png, image/webp" 
+            className="hidden" 
+            ref={fileInputRef} 
+            onChange={handleAvatarUpload} 
+          />
+          <button 
+            onClick={() => fileInputRef.current?.click()}
+            disabled={isUploading}
+            className="flex items-center gap-2 rounded-sm border px-3 py-1.5 text-[12px] font-medium transition-colors hover:bg-accent/50 disabled:opacity-50"
             style={{ borderColor: "var(--border-base)", color: "var(--text-secondary)" }}>
-            <Camera className="h-3.5 w-3.5" />
-            Upload Photo
+            {isUploading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Camera className="h-3.5 w-3.5" />}
+            {isUploading ? "Uploading..." : "Upload Photo"}
           </button>
+          {avatarUrl && (
+            <button
+              onClick={handleRemoveAvatar}
+              disabled={isUploading}
+              className="px-3 py-1.5 text-[12px] font-medium transition-colors hover:bg-red-500/10 disabled:opacity-50 rounded-sm"
+              style={{ color: "#ef4444" }}
+            >
+              Remove
+            </button>
+          )}
         </div>
       </Field>
 
@@ -245,24 +326,69 @@ function NotificationsTab() {
 }
 
 /* ─── Security Tab ──────────────────────────────────────── */
+const passwordSchema = z.object({
+  currentPassword: z.string().min(1, 'Current password is required.'),
+  newPassword: z
+    .string()
+    .min(8, 'New password must be at least 8 characters.'),
+  confirmPassword: z.string().min(1, 'Please confirm your new password.'),
+}).refine(
+  (data) => data.newPassword === data.confirmPassword,
+  {
+    message: 'Passwords do not match.',
+    path: ['confirmPassword'],
+  }
+).refine(
+  (data) => data.currentPassword !== data.newPassword,
+  {
+    message: 'New password must be different from current password.',
+    path: ['newPassword'],
+  }
+);
+
+type PasswordFormValues = z.infer<typeof passwordSchema>;
+
 function SecurityTab() {
   const { data: me } = api.user.me.useQuery();
-  const [current, setCurrent] = useState("");
-  const [next, setNext] = useState("");
-  const [confirm, setConfirm] = useState("");
-  const [showCurrent, setShowCurrent] = useState(false);
-  const [showNext, setShowNext] = useState(false);
-  const [error, setError] = useState("");
-  const [success, setSuccess] = useState(false);
 
-  const handleChange = () => {
-    setError("");
-    if (!current || !next || !confirm) { setError("All fields are required."); return; }
-    if (next.length < 8) { setError("New password must be at least 8 characters."); return; }
-    if (next !== confirm) { setError("Passwords do not match."); return; }
-    // Backend endpoint not exposed in tRPC — display info
-    setError("Password change requires backend implementation. Contact your admin.");
-  };
+  const form = useForm<PasswordFormValues>({
+    resolver: zodResolver(passwordSchema),
+    defaultValues: {
+      currentPassword: '',
+      newPassword: '',
+      confirmPassword: '',
+    },
+  });
+
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [showCurrent, setShowCurrent] = useState(false);
+  const [showNew, setShowNew] = useState(false);
+  const [showConfirm, setShowConfirm] = useState(false);
+
+  const changePassword = api.user.changePassword.useMutation();
+
+  async function onSubmit() {
+    form.handleSubmit(async (values) => {
+      setIsSubmitting(true);
+      try {
+        await changePassword.mutateAsync({
+          currentPassword: values.currentPassword,
+          newPassword: values.newPassword,
+        });
+        toast.success('Password changed successfully.');
+        form.reset();
+      } catch (err: unknown) {
+        const message = err instanceof Error ? err.message : 'Failed to change password.';
+        if (message.toLowerCase().includes('incorrect') || message.toLowerCase().includes('wrong')) {
+          form.setError('currentPassword', { message: 'Current password is incorrect.' });
+        } else {
+          toast.error(message);
+        }
+      } finally {
+        setIsSubmitting(false);
+      }
+    })();
+  }
 
   return (
     <div>
@@ -276,49 +402,68 @@ function SecurityTab() {
         </p>
       </div>
 
-      <p className="mb-5 text-[13px] font-semibold" style={{ color: "var(--text-primary)" }}>Change Password</p>
+      <div className="bg-[var(--bg-surface)] border border-[var(--border-base)] rounded-md p-6">
+        <h2 className="text-[18px] font-semibold text-[var(--text-primary)] mb-1">
+          Change Password
+        </h2>
+        <p className="text-[14px] text-[var(--text-secondary)] mb-6">
+          Update your account password securely.
+        </p>
 
-      {error && (
-        <div className="mb-4 rounded-sm border px-4 py-2.5 text-[12px]"
-          style={{ borderColor: "rgba(239,68,68,0.2)", background: "rgba(239,68,68,0.08)", color: "#ef4444" }}>
-          {error}
-        </div>
-      )}
-      {success && (
-        <div className="mb-4 rounded-sm border px-4 py-2.5 text-[12px]"
-          style={{ borderColor: "rgba(34,197,94,0.2)", background: "rgba(34,197,94,0.08)", color: "#22c55e" }}>
-          Password changed successfully.
-        </div>
-      )}
-
-      <div className="space-y-4">
-        {[
-          { label: "Current Password", value: current, set: setCurrent, show: showCurrent, toggle: () => setShowCurrent(v => !v) },
-          { label: "New Password", value: next, set: setNext, show: showNext, toggle: () => setShowNext(v => !v) },
-          { label: "Confirm New Password", value: confirm, set: setConfirm, show: showNext, toggle: () => {} },
-        ].map(({ label, value, set, show, toggle }) => (
-          <div key={label} className="flex flex-col gap-1.5">
-            <label className="text-[12px] font-medium" style={{ color: "var(--text-secondary)" }}>{label}</label>
-            <div className="relative max-w-sm">
+        <div className="space-y-4 max-w-sm">
+          <div className="flex flex-col gap-1.5">
+            <label className="text-[14px] font-medium text-[var(--text-primary)]">Current Password</label>
+            <div className="relative">
               <input
-                type={show ? "text" : "password"}
-                value={value}
-                onChange={e => set(e.target.value)}
-                className="w-full rounded-sm border px-3 py-2 pr-9 text-[13px] outline-none transition-colors"
-                style={{ background: "var(--bg-elevated)", borderColor: "var(--border-base)", color: "var(--text-primary)" }}
+                type={showCurrent ? "text" : "password"}
+                {...form.register('currentPassword')}
+                className="w-full bg-[var(--bg-elevated)] border-[var(--border-base)] text-[var(--text-primary)] placeholder:text-[var(--text-tertiary)] focus-visible:ring-0 focus-visible:border-[var(--border-strong)] h-9 rounded-md px-3 pr-9 outline-none transition-colors"
               />
-              <button onClick={toggle} className="absolute right-2.5 top-2.5" type="button">
-                {show ? <EyeOff className="h-4 w-4" style={{ color: "var(--text-tertiary)" }} /> : <Eye className="h-4 w-4" style={{ color: "var(--text-tertiary)" }} />}
+              <button onClick={() => setShowCurrent(v => !v)} className="absolute right-3 top-1/2 -translate-y-1/2 text-[var(--text-tertiary)] hover:text-[var(--text-secondary)] transition-colors" type="button">
+                {showCurrent ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
               </button>
             </div>
+            {form.formState.errors.currentPassword && <p className="text-[12px] text-red-400">{form.formState.errors.currentPassword.message}</p>}
           </div>
-        ))}
-        <button onClick={handleChange}
-          className="mt-2 flex items-center gap-2 rounded-sm px-4 py-2 text-[13px] font-medium transition-all"
-          style={{ background: "var(--foreground)", color: "var(--bg-base)" }}>
-          <Shield className="h-3.5 w-3.5" />
-          Update Password
-        </button>
+
+          <div className="flex flex-col gap-1.5">
+            <label className="text-[14px] font-medium text-[var(--text-primary)]">New Password</label>
+            <div className="relative">
+              <input
+                type={showNew ? "text" : "password"}
+                {...form.register('newPassword')}
+                className="w-full bg-[var(--bg-elevated)] border-[var(--border-base)] text-[var(--text-primary)] placeholder:text-[var(--text-tertiary)] focus-visible:ring-0 focus-visible:border-[var(--border-strong)] h-9 rounded-md px-3 pr-9 outline-none transition-colors"
+              />
+              <button onClick={() => setShowNew(v => !v)} className="absolute right-3 top-1/2 -translate-y-1/2 text-[var(--text-tertiary)] hover:text-[var(--text-secondary)] transition-colors" type="button">
+                {showNew ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+              </button>
+            </div>
+            {form.formState.errors.newPassword ? <p className="text-[12px] text-red-400">{form.formState.errors.newPassword.message}</p> : <p className="text-[12px] text-[var(--text-secondary)]">Must be at least 8 characters.</p>}
+          </div>
+
+          <div className="flex flex-col gap-1.5">
+            <label className="text-[14px] font-medium text-[var(--text-primary)]">Confirm New Password</label>
+            <div className="relative">
+              <input
+                type={showConfirm ? "text" : "password"}
+                {...form.register('confirmPassword')}
+                className="w-full bg-[var(--bg-elevated)] border-[var(--border-base)] text-[var(--text-primary)] placeholder:text-[var(--text-tertiary)] focus-visible:ring-0 focus-visible:border-[var(--border-strong)] h-9 rounded-md px-3 pr-9 outline-none transition-colors"
+              />
+              <button onClick={() => setShowConfirm(v => !v)} className="absolute right-3 top-1/2 -translate-y-1/2 text-[var(--text-tertiary)] hover:text-[var(--text-secondary)] transition-colors" type="button">
+                {showConfirm ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+              </button>
+            </div>
+            {form.formState.errors.confirmPassword && <p className="text-[12px] text-red-400">{form.formState.errors.confirmPassword.message}</p>}
+          </div>
+
+          <button onClick={onSubmit}
+            disabled={isSubmitting}
+            className="mt-2 flex h-9 items-center justify-center gap-2 rounded-sm px-4 text-[14px] font-medium transition-all disabled:opacity-50"
+            style={{ background: "var(--foreground)", color: "var(--bg-base)" }}>
+            {isSubmitting && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
+            {isSubmitting ? "Updating..." : "Update Password"}
+          </button>
+        </div>
       </div>
     </div>
   );

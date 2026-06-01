@@ -1,33 +1,32 @@
 "use client";
 
 import { useState } from "react";
-import { Plus, Users, ArrowRight, Building2, Building, Loader2 } from "lucide-react";
+import { Plus, Users, Building2, Building, Loader2, Clock, LogOut } from "lucide-react";
 import { api } from "@/trpc/react";
-import { useSession } from "next-auth/react";
+import { useSession, signOut } from "next-auth/react";
 import { useEffect } from "react";
 
 export default function OnboardingPage() {
-  const [view, setView] = useState<"SELECT" | "CREATE" | "JOIN">("SELECT");
+  const [view, setView] = useState<"SELECT" | "CREATE" | "WAIT">("SELECT");
   const [companyName, setCompanyName] = useState("");
-  const [inviteCode, setInviteCode] = useState("");
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
+  const [statusMessage, setStatusMessage] = useState("");
 
   const { update } = useSession();
   const utils = api.useUtils();
   
   // Auto-recovery if database has company but session cookie doesn't
-  const { data: existingCompany, isLoading: checkingCompany } = api.company.getCurrent.useQuery(undefined, {
+  const { data: me, isLoading: checkingUser, refetch: refetchUser } = api.user.me.useQuery(undefined, {
     retry: false,
   });
 
   useEffect(() => {
-    if (existingCompany?.id) {
-      void update({ companyId: existingCompany.id, role: "ADMIN" }).then(() => {
+    if (me?.companyId) {
+      void update({ companyId: me.companyId, role: me.role }).then(() => {
         window.location.href = "/dashboard";
       });
     }
-  }, [existingCompany, update]);
+  }, [me, update]);
 
   const createCompany = api.company.create.useMutation({
     onSuccess: async (data) => {
@@ -44,36 +43,37 @@ export default function OnboardingPage() {
           return;
         }
       }
-      setError(err.message);
+      setStatusMessage(err.message);
       setLoading(false);
     },
   });
 
-  // Note: the backend API might not have a specific join route yet,
-  // we will map this to the appropriate invite acceptance logic once available
-  // For now, this is just a placeholder action.
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!companyName.trim()) return;
     setLoading(true);
-    setError("");
+    setStatusMessage("");
     createCompany.mutate({ 
       name: companyName.trim(), 
       slug: companyName.trim().toLowerCase().replace(/[^a-z0-9]/g, '-') 
     });
   };
 
-  const handleJoin = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!inviteCode.trim()) return;
+  const handleCheckStatus = async () => {
     setLoading(true);
-    setError("");
-    // TODO: implement join logic via API
-    // joinCompany.mutate({ inviteCode: inviteCode.trim() });
-    setTimeout(() => {
-      setError("Joining by code is not yet implemented on the server.");
+    setStatusMessage("");
+    try {
+      const res = await refetchUser();
+      if (res.data?.companyId) {
+        setStatusMessage("Invitation found! Redirecting...");
+      } else {
+        setStatusMessage("No invitation detected yet. Please check again later or contact your administrator.");
+        setLoading(false);
+      }
+    } catch {
+      setStatusMessage("Failed to check status. Please try again.");
       setLoading(false);
-    }, 1000);
+    }
   };
 
   return (
@@ -97,11 +97,11 @@ export default function OnboardingPage() {
             Welcome to BlockMaps
           </h1>
           <p className="mt-2 text-[14px] text-muted-foreground">
-            {checkingCompany ? "Checking workspace status..." : view === "SELECT" ? "Let's set up your operational workspace." : view === "CREATE" ? "Create a new company workspace." : "Join an existing workspace."}
+            {checkingUser ? "Checking workspace status..." : view === "SELECT" ? "Let's set up your operational workspace." : view === "CREATE" ? "Create a new company workspace." : "Waiting for workspace invitation."}
           </p>
         </div>
 
-        {checkingCompany ? (
+        {checkingUser ? (
           <div className="flex justify-center p-8">
             <Loader2 className="h-8 w-8 animate-spin text-logistics-cyan" />
           </div>
@@ -121,15 +121,15 @@ export default function OnboardingPage() {
             </button>
 
             <button
-              onClick={() => setView("JOIN")}
+              onClick={() => setView("WAIT")}
               className="group flex flex-col items-center justify-center gap-3 rounded-md border border-border bg-card p-6 text-center transition-all hover:border-logistics-amber/50 hover:bg-accent/40"
             >
               <div className="flex h-12 w-12 items-center justify-center rounded-full bg-logistics-amber/10 text-logistics-amber transition-transform group-hover:scale-110">
                 <Users className="h-6 w-6" />
               </div>
               <div>
-                <h3 className="font-medium text-foreground">Join Existing Workspace</h3>
-                <p className="mt-1 text-[13px] text-muted-foreground">Enter an invite code provided by your administrator</p>
+                <h3 className="font-medium text-foreground">Wait for Invitation</h3>
+                <p className="mt-1 text-[13px] text-muted-foreground">Wait for an administrator to invite you to their workspace</p>
               </div>
             </button>
           </div>
@@ -137,9 +137,9 @@ export default function OnboardingPage() {
 
         {view === "CREATE" && (
           <form onSubmit={handleCreate} className="rounded-md border border-border bg-card p-6 shadow-xl">
-            {error && (
+            {statusMessage && (
               <div className="mb-5 rounded-sm border border-logistics-red/20 bg-logistics-red/10 px-4 py-3 text-[12px] text-logistics-red">
-                {error}
+                {statusMessage}
               </div>
             )}
             <div className="space-y-2">
@@ -162,7 +162,7 @@ export default function OnboardingPage() {
             <div className="mt-6 flex gap-3">
               <button
                 type="button"
-                onClick={() => { setView("SELECT"); setError(""); }}
+                onClick={() => { setView("SELECT"); setStatusMessage(""); }}
                 className="flex flex-1 items-center justify-center rounded-sm border border-border px-4 py-2.5 text-[13px] font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
               >
                 Back
@@ -178,44 +178,60 @@ export default function OnboardingPage() {
           </form>
         )}
 
-        {view === "JOIN" && (
-          <form onSubmit={handleJoin} className="rounded-md border border-border bg-card p-6 shadow-xl">
-            {error && (
-              <div className="mb-5 rounded-sm border border-logistics-red/20 bg-logistics-red/10 px-4 py-3 text-[12px] text-logistics-red">
-                {error}
-              </div>
-            )}
-            <div className="space-y-2">
-              <label className="text-[12px] font-medium text-foreground">
-                Invite Code
-              </label>
-              <input
-                autoFocus
-                required
-                value={inviteCode}
-                onChange={(e) => setInviteCode(e.target.value)}
-                className="w-full rounded-sm border border-border bg-background px-3 py-2 text-[14px] font-mono text-foreground outline-none transition-colors focus:border-foreground/30 focus:ring-1 focus:ring-foreground/30"
-                placeholder="XXXX-XXXX"
-              />
+        {view === "WAIT" && (
+          <div className="rounded-md border border-border bg-card p-6 text-center shadow-xl">
+            <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-logistics-amber/10 text-logistics-amber">
+              <Clock className="h-6 w-6" />
             </div>
 
-            <div className="mt-6 flex gap-3">
+            <h3 className="text-[16px] font-medium text-foreground">Waiting for Invitation</h3>
+            
+            <p className="mt-2 text-[13px] text-muted-foreground leading-relaxed">
+              Ask your workspace administrator to invite your registered email address:
+            </p>
+            <p className="mt-2 rounded-sm bg-accent/50 px-3 py-1.5 text-[13px] font-mono font-medium text-foreground select-all break-all border border-border/50">
+              {me?.email}
+            </p>
+
+            {statusMessage && (
+              <div className="mt-4 rounded-sm border border-border bg-accent/30 px-3 py-2.5 text-[12px] text-muted-foreground">
+                {statusMessage}
+              </div>
+            )}
+
+            <div className="mt-6 space-y-3">
               <button
-                type="button"
-                onClick={() => { setView("SELECT"); setError(""); }}
-                className="flex flex-1 items-center justify-center rounded-sm border border-border px-4 py-2.5 text-[13px] font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+                onClick={handleCheckStatus}
+                disabled={loading}
+                className="flex w-full items-center justify-center gap-2 rounded-sm bg-foreground px-4 py-2.5 text-[13px] font-medium text-background transition-all hover:bg-foreground/90 disabled:opacity-50"
               >
-                Back
+                {loading ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    Checking...
+                  </>
+                ) : (
+                  "Check Status"
+                )}
               </button>
-              <button
-                type="submit"
-                disabled={loading || !inviteCode.trim()}
-                className="flex flex-1 items-center justify-center gap-2 rounded-sm bg-foreground px-4 py-2.5 text-[13px] font-medium text-background transition-all hover:bg-foreground/90 disabled:opacity-50"
-              >
-                {loading ? "Verifying..." : "Join Workspace"}
-              </button>
+
+              <div className="flex gap-3">
+                <button
+                  onClick={() => { setView("SELECT"); setStatusMessage(""); }}
+                  className="flex-1 rounded-sm border border-border px-3 py-2 text-[12px] font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+                >
+                  Back
+                </button>
+                <button
+                  onClick={() => signOut({ callbackUrl: "/login" })}
+                  className="flex-1 flex items-center justify-center gap-1.5 rounded-sm border border-logistics-red/20 text-logistics-red px-3 py-2 text-[12px] font-medium transition-colors hover:bg-logistics-red/10"
+                >
+                  <LogOut className="h-3.5 w-3.5" />
+                  Sign Out
+                </button>
+              </div>
             </div>
-          </form>
+          </div>
         )}
       </div>
     </div>

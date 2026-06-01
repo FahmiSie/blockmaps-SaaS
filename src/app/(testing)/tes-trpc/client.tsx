@@ -43,15 +43,7 @@ type ActionResult<T = void> =
   | { success: false; error: string };
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
-function fmt(d: Date | string) {
-  return new Date(d).toLocaleDateString("id-ID", {
-    day: "2-digit",
-    month: "short",
-    year: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
-}
+
 
 function Badge({
   label,
@@ -316,7 +308,7 @@ function UserTab({ utils }: { utils: ReturnType<typeof api.useUtils> }) {
             <StatusRow label="name" value={me?.name} />
             <StatusRow label="email" value={me?.email} />
             <StatusRow label="role" value={me?.role} />
-            <StatusRow label="company" value={me?.company?.name} />
+            <StatusRow label="companyId" value={me?.companyId} />
           </>
         )}
       </Section>

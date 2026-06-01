@@ -7,10 +7,8 @@ import {
   Plus,
   Grid3X3,
   List,
-  Package,
   ChevronRight,
   Settings2,
-  ToggleLeft,
   Trash2,
   Pencil,
   Save,
@@ -538,7 +536,6 @@ function ZoneDetailPanel({
 export function ZonesClient() {
   const utils = api.useUtils();
   const { data: zones, isLoading } = api.zone.floorPlan.useQuery();
-  const { data: stats } = api.zone.stats.useQuery();
 
   const [viewMode, setViewMode] = useState<ViewMode>("map");
   const [showCreate, setShowCreate] = useState(false);

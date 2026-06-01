@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { signOut } from "next-auth/react";
 import {
@@ -273,7 +274,7 @@ export function DashboardSidebar({ user }: SidebarProps) {
               }}
             >
               {user.image
-                ? <img src={user.image} alt="" className="h-7 w-7 rounded-md object-cover" />
+                ? <Image src={user.image} alt="" width={28} height={28} unoptimized className="h-7 w-7 rounded-md object-cover" />
                 : (user.name?.[0] ?? user.email?.[0] ?? "U").toUpperCase()
               }
             </div>
