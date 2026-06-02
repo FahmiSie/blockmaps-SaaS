@@ -5,6 +5,7 @@ import { Poppins, Geist_Mono } from "next/font/google";
 
 import { TRPCReactProvider } from "@/trpc/react";
 import { Toaster } from "sonner";
+import Script from "next/script";
 
 export const metadata: Metadata = {
   title: "BlockMaps — Industrial Logistics Operating System",

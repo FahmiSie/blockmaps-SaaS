@@ -9,8 +9,6 @@ import { z } from "zod";
  *   GOOGLE_CLIENT_SECRET: string;
  *   BASE_URL: string;
  *   NEXTAUTH_URL: string;
- *   NEXT_PUBLIC_SOCKET_URL: string | undefined;
- *   NEXT_PUBLIC_MIDTRANS_CLIENT_KEY: string;
  * }>} */
 export const env = createEnv({
   server: {
@@ -25,10 +23,6 @@ export const env = createEnv({
     NEXTAUTH_URL: z.string(),
     MIDTRANS_SERVER_KEY: z.string(),
   },
-  client: {
-    NEXT_PUBLIC_SOCKET_URL: z.string().url().optional(),
-    NEXT_PUBLIC_MIDTRANS_CLIENT_KEY: z.string(),
-  },
   runtimeEnv: {
     AUTH_SECRET: process.env.AUTH_SECRET,
     DATABASE_URL: process.env.DATABASE_URL,
@@ -37,9 +31,7 @@ export const env = createEnv({
     GOOGLE_CLIENT_ID: process.env.GOOGLE_CLIENT_ID,
     NEXTAUTH_URL: process.env.NEXTAUTH_URL,
     BASE_URL: process.env.BASE_URL,
-    NEXT_PUBLIC_SOCKET_URL: process.env.NEXT_PUBLIC_SOCKET_URL,
     MIDTRANS_SERVER_KEY: process.env.MIDTRANS_SERVER_KEY,
-    NEXT_PUBLIC_MIDTRANS_CLIENT_KEY: process.env.NEXT_PUBLIC_MIDTRANS_CLIENT_KEY || process.env.MIDTRANS_CLIENT_KEY,
   },
   skipValidation: !!process.env.SKIP_ENV_VALIDATION,
   emptyStringAsUndefined: true,

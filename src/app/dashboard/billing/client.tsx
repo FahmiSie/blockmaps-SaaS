@@ -105,7 +105,7 @@ export default function BillingClient() {
     <>
       <Script
         src="https://app.sandbox.midtrans.com/snap/snap.js"
-        data-client-key={env.NEXT_PUBLIC_MIDTRANS_CLIENT_KEY}
+        data-client-key={'SB-Mid-client-DD1Rl4vCEp_aAJxZ'}
         strategy="afterInteractive"
       />
 
