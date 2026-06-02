@@ -80,7 +80,7 @@ export async function createItemAction(
       select: { id: true, name: true, sku: true },
     });
 
-    revalidatePath("/admin/items");
+    revalidatePath("/admin/inventory");
     return { success: true, data: item };
   } catch (err) {
     console.error("[createItemAction]", err);
