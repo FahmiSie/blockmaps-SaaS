@@ -98,23 +98,21 @@ function InviteModal({ onClose, onSuccess }: { onClose: () => void; onSuccess: (
               className="w-full rounded-sm border px-3 py-2 text-[13px] outline-none"
               style={{ background: "var(--bg-surface)", borderColor: "var(--border-base)", color: "var(--text-primary)" }}
             >
-              <option value="OPERATOR">Operator — Can create and manage deliveries</option>
-              <option value="MANAGER">Manager — Can approve/reject deliveries</option>
+              <option value="OPERATOR">Operator — Update stock and complete transfers.</option>
+              <option value="MANAGER">Manager — Manage inventory, approve transfers, and view analytics.</option>
             </select>
           </div>
         </div>
 
         <div className="mt-6 flex gap-3">
           <button onClick={onClose}
-            className="flex flex-1 items-center justify-center rounded-sm border py-2.5 text-[13px] font-medium transition-colors hover:bg-accent/50"
-            style={{ borderColor: "var(--border-base)", color: "var(--text-secondary)" }}>
+            className="flex flex-1 items-center justify-center rounded-sm bg-zinc-800 py-2.5 text-[13px] font-medium text-white transition-colors hover:bg-zinc-700">
             Cancel
           </button>
           <button
             onClick={() => { if (email.trim()) invite.mutate({ email: email.trim(), role }); }}
             disabled={invite.isPending || !email.trim()}
-            className="flex flex-1 items-center justify-center gap-2 rounded-sm py-2.5 text-[13px] font-medium transition-all disabled:opacity-50"
-            style={{ background: "var(--foreground)", color: "var(--bg-base)" }}
+            className="flex flex-1 items-center justify-center gap-2 rounded-sm bg-amber-500 py-2.5 text-[13px] font-medium text-white transition-all hover:bg-amber-600 disabled:opacity-50"
           >
             {invite.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <UserPlus className="h-3.5 w-3.5" />}
             Send Invitation
@@ -166,15 +164,13 @@ function EditRoleModal({ user, onClose, onSuccess }: {
         </div>
         <div className="mt-5 flex gap-3">
           <button onClick={onClose}
-            className="flex flex-1 items-center justify-center rounded-sm border py-2 text-[13px] transition-colors hover:bg-accent/50"
-            style={{ borderColor: "var(--border-base)", color: "var(--text-secondary)" }}>
+            className="flex flex-1 items-center justify-center rounded-sm bg-zinc-800 py-2 text-[13px] font-medium text-white transition-colors hover:bg-zinc-700">
             Cancel
           </button>
           <button
             onClick={() => updateRole.mutate({ id: user.id, role })}
             disabled={updateRole.isPending || role === user.role}
-            className="flex flex-1 items-center justify-center gap-2 rounded-sm py-2 text-[13px] font-medium disabled:opacity-50"
-            style={{ background: "var(--foreground)", color: "var(--bg-base)" }}>
+            className="flex flex-1 items-center justify-center gap-2 rounded-sm bg-amber-500 py-2 text-[13px] font-medium text-white transition-all hover:bg-amber-600 disabled:opacity-50">
             {updateRole.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Check className="h-3.5 w-3.5" />}
             Save Role
           </button>
@@ -202,15 +198,13 @@ function RemoveConfirmModal({ user, onClose, onSuccess }: {
         </p>
         <div className="flex gap-3">
           <button onClick={onClose}
-            className="flex flex-1 items-center justify-center rounded-sm border py-2 text-[13px] transition-colors hover:bg-accent/50"
-            style={{ borderColor: "var(--border-base)", color: "var(--text-secondary)" }}>
+            className="flex flex-1 items-center justify-center rounded-sm bg-zinc-800 py-2 text-[13px] font-medium text-white transition-colors hover:bg-zinc-700">
             Cancel
           </button>
           <button
             onClick={() => removeUser.mutate({ id: user.id })}
             disabled={removeUser.isPending}
-            className="flex flex-1 items-center justify-center gap-2 rounded-sm py-2 text-[13px] font-medium disabled:opacity-50"
-            style={{ background: "#ef4444", color: "#fff" }}>
+            className="flex flex-1 items-center justify-center gap-2 rounded-sm bg-red-500 py-2 text-[13px] font-medium text-white transition-all hover:bg-red-600 disabled:opacity-50">
             {removeUser.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <UserX className="h-3.5 w-3.5" />}
             Remove
           </button>
@@ -264,8 +258,7 @@ export function UsersClient({ currentUser }: { currentUser: CurrentUser }) {
         </div>
         {canInvite && (
           <button onClick={() => setShowInvite(true)}
-            className="flex items-center gap-2 rounded-sm px-4 py-2 text-[13px] font-medium transition-all hover:opacity-90"
-            style={{ background: "var(--foreground)", color: "var(--bg-base)" }}>
+            className="flex items-center gap-2 rounded-sm bg-amber-500 px-4 py-2 text-[13px] font-medium text-white transition-all hover:bg-amber-600">
             <UserPlus className="h-4 w-4" />
             Invite User
           </button>

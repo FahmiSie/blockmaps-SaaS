@@ -39,7 +39,8 @@ export const deliveryRouter = createTRPCRouter({
         requestedById: z.string().cuid().optional(),
         dateFrom: z.date().optional(),
         dateTo: z.date().optional(),
-      }),
+        search: z.string().optional(),
+      }).optional().default({})
     )
     .query(async ({ ctx, input }) => {
       const {
@@ -51,6 +52,7 @@ export const deliveryRouter = createTRPCRouter({
         requestedById,
         dateFrom,
         dateTo,
+        search,
       } = input;
       const skip = (page - 1) * limit;
 
@@ -68,6 +70,14 @@ export const deliveryRouter = createTRPCRouter({
               },
             }
           : {}),
+        ...(search && {
+          OR: [
+            { requestedBy: { name: { contains: search, mode: "insensitive" as const } } },
+            { fromZone: { name: { contains: search, mode: "insensitive" as const } } },
+            { toZone: { name: { contains: search, mode: "insensitive" as const } } },
+            { items: { some: { item: { name: { contains: search, mode: "insensitive" as const } } } } },
+          ],
+        }),
       };
 
       const [requests, total] = await Promise.all([

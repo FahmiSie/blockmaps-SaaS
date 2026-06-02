@@ -81,14 +81,10 @@ export function EmptyState({
           {action.href ? (
             <Link
               href={action.href}
-              className="inline-flex items-center gap-2 rounded-md px-4 py-2 font-medium transition-all duration-150"
+              className="inline-flex items-center gap-2 rounded-md px-4 py-2 font-medium border border-[var(--border-base)] bg-[var(--bg-elevated)] text-[var(--text-primary)] transition-all duration-150 hover:bg-accent"
               style={{
                 fontSize: "13px",
-                background: "var(--text-primary)",
-                color: "var(--text-inverse)",
               }}
-              onMouseEnter={(e) => { e.currentTarget.style.opacity = "0.9"; }}
-              onMouseLeave={(e) => { e.currentTarget.style.opacity = "1"; }}
             >
               {action.label}
             </Link>
@@ -96,14 +92,10 @@ export function EmptyState({
             <button
               type="button"
               onClick={action.onClick}
-              className="inline-flex items-center gap-2 rounded-md px-4 py-2 font-medium transition-all duration-150"
+              className="inline-flex items-center gap-2 rounded-md px-4 py-2 font-medium border border-[var(--border-base)] bg-[var(--bg-elevated)] text-[var(--text-primary)] transition-all duration-150 hover:bg-accent"
               style={{
                 fontSize: "13px",
-                background: "var(--text-primary)",
-                color: "var(--text-inverse)",
               }}
-              onMouseEnter={(e) => { e.currentTarget.style.opacity = "0.9"; }}
-              onMouseLeave={(e) => { e.currentTarget.style.opacity = "1"; }}
             >
               {action.label}
             </button>

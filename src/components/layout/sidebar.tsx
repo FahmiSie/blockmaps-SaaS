@@ -62,7 +62,6 @@ interface SidebarProps {
     image?: string | null;
   };
 }
-
 export function DashboardSidebar({ user }: SidebarProps) {
   const pathname = usePathname();
   const [userMenuOpen, setUserMenuOpen] = useState(false);
