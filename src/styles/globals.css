@@ -6,7 +6,7 @@
 
 /* ─── FONT ─────────────────────────────────────────────────── */
 @theme {
-  --font-sans: var(--font-geist-sans), "Inter", ui-sans-serif, system-ui, sans-serif,
+  --font-sans: var(--font-geist), "Inter", ui-sans-serif, system-ui, sans-serif,
     "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji";
   --font-mono: var(--font-geist-mono), ui-monospace, "Cascadia Code", "Source Code Pro",
     Menlo, Consolas, "DejaVu Sans Mono", monospace;
@@ -65,83 +65,92 @@
 :root {
   color-scheme: dark;
 
-  /* ── Background system ────────────────────────────────────── */
-  --bg-base:     #080808;   /* App root background */
-  --bg-surface:  #0f0f0f;   /* Card/panel surfaces */
-  --bg-elevated: #161616;   /* Dropdowns, tooltips, modals */
-  --bg-overlay:  #1e1e1e;   /* Hover states on surfaces */
-  --bg-subtle:   #141414;   /* Sidebar, inset areas */
+  /* ── BACKGROUNDS ── */
+  --bg-base:        #0A0A0A;   /* Page root — pure dark */
+  --bg-sidebar:     #0F0F0F;   /* Sidebar — slightly lighter than base */
+  --bg-surface:     #131313;   /* Cards, panels — clearly visible on base */
+  --bg-elevated:    #171717;   /* Inputs, dropdowns, modals */
+  --bg-overlay:     #1D1D1D;   /* Hover states */
+  --bg-subtle:      #141414;   /* Inset areas, table headers */
 
-  /* ── Border system ────────────────────────────────────────── */
-  --border-base:   rgba(255,255,255,0.06);  /* Default borders */
-  --border-strong: rgba(255,255,255,0.10);  /* Focused/active borders */
-  --border-accent: rgba(255,255,255,0.16);  /* Prominent borders */
+  /* ── BORDERS ── */
+  --border-base:    rgba(255, 255, 255, 0.08);   /* Default — subtle */
+  --border-strong:  rgba(255, 255, 255, 0.12);   /* Hover/focus */
+  --border-accent:  rgba(255, 255, 255, 0.18);   /* Prominent */
 
-  /* ── Text system ──────────────────────────────────────────── */
-  --text-primary:   #f0f0f0;  /* Main readable text */
-  --text-secondary: #a0a0a0;  /* Supporting text, labels */
-  --text-tertiary:  #606060;  /* Placeholder, disabled */
-  --text-inverse:   #080808;  /* Text on light backgrounds */
+  /* ── TEXT ── */
+  --text-primary:   #F5F5F5;   /* Main text */
+  --text-secondary: #A1A1AA;   /* Supporting text */
+  --text-muted:     #71717A;   /* Placeholder, disabled */
+  --text-inverse:   #0A0A0A;   /* Text on light bg */
 
-  /* ── Zone type accents ────────────────────────────────────── */
-  --accent-raw:   #d97706;  /* RAW MAT zones */
-  --accent-prod:  #0891b2;  /* PRODUCTION zones */
-  --accent-cold:  #7c3aed;  /* COLD STORAGE zones */
-  --accent-ship:  #059669;  /* SHIPPING zones */
-  --accent-qa:    #dc2626;  /* QA zones */
+  /* ── ZONE TYPE ACCENTS ── */
+  --accent-raw:     #d97706;
+  --accent-raw-bg:  rgba(217, 119, 6, 0.10);
+  --accent-prod:    #0891b2;
+  --accent-prod-bg: rgba(8, 145, 178, 0.10);
+  --accent-cold:    #7c3aed;
+  --accent-cold-bg: rgba(124, 58, 237, 0.10);
+  --accent-ship:    #059669;
+  --accent-ship-bg: rgba(5, 150, 105, 0.10);
+  --accent-qa:      #dc2626;
+  --accent-qa-bg:   rgba(220, 38, 38, 0.10);
 
-  /* ── Status colors ────────────────────────────────────────── */
-  --status-active:   #22c55e;  /* Active, operational, online */
-  --status-warning:  #f59e0b;  /* Warning, attention needed */
-  --status-critical: #ef4444;  /* Error, critical issue */
-  --status-idle:     #6b7280;  /* Idle, offline, inactive */
-  --status-pending:  #3b82f6;  /* Pending, processing */
+  /* ── STATUS ── */
+  --status-active:   #22c55e;
+  --status-warning:  #f59e0b;
+  --status-critical: #ef4444;
+  --status-idle:     #52525b;
+  --status-pending:  #3b82f6;
 
-  /* ── Legacy oklch tokens (backward compat) ────────────────── */
-  --background:           oklch(0.105 0.004 260);
-  --foreground:           oklch(0.960 0 0);
+  /* ── BRAND ── */
+  --brand-primary:  #F5F5F5;
+  --brand-on-primary: #0A0A0A;
 
-  --card:                 oklch(0.135 0.004 260);
-  --card-foreground:      oklch(0.960 0 0);
+  /* ── TAILWIND/SHADCN COMPATIBILITY BRIDGE ── */
+  --background:           var(--bg-base);
+  --foreground:           var(--text-primary);
 
-  --popover:              oklch(0.145 0.004 260);
-  --popover-foreground:   oklch(0.960 0 0);
+  --card:                 var(--bg-surface);
+  --card-foreground:      var(--text-primary);
 
-  --primary:              oklch(0.960 0 0);
-  --primary-foreground:   oklch(0.105 0.004 260);
+  --popover:              var(--bg-elevated);
+  --popover-foreground:   var(--text-primary);
 
-  --secondary:            oklch(0.185 0.004 260);
-  --secondary-foreground: oklch(0.860 0 0);
+  --primary:              var(--brand-primary);
+  --primary-foreground:   var(--brand-on-primary);
 
-  --muted:                oklch(0.185 0.004 260);
-  --muted-foreground:     oklch(0.560 0 0);
+  --secondary:            var(--bg-subtle);
+  --secondary-foreground: var(--text-secondary);
 
-  --accent:               oklch(0.195 0.004 260);
-  --accent-foreground:    oklch(0.960 0 0);
+  --muted:                var(--bg-subtle);
+  --muted-foreground:     var(--text-muted);
 
-  --destructive:          oklch(0.560 0.180 25);
+  --accent:               var(--bg-overlay);
+  --accent-foreground:    var(--text-primary);
 
-  --border:               oklch(0.200 0.004 260);
-  --input:                oklch(0.200 0.004 260);
-  --ring:                 oklch(0.340 0.004 260);
+  --destructive:          var(--accent-qa);
 
-  /* Sidebar — slightly darker than card */
-  --sidebar:                    oklch(0.118 0.004 260);
-  --sidebar-foreground:         oklch(0.860 0 0);
-  --sidebar-primary:            oklch(0.960 0 0);
-  --sidebar-primary-foreground: oklch(0.105 0.004 260);
-  --sidebar-accent:             oklch(0.165 0.004 260);
-  --sidebar-accent-foreground:  oklch(0.960 0 0);
-  --sidebar-border:             oklch(0.170 0.004 260);
-  --sidebar-ring:               oklch(0.380 0.004 260);
+  --border:               var(--border-base);
+  --input:                var(--border-strong);
+  --ring:                 var(--border-accent);
 
-  /* Industrial accent palette (legacy) */
-  --logistics-amber: oklch(0.760 0.148 52);
-  --logistics-cyan:  oklch(0.755 0.108 228);
-  --logistics-green: oklch(0.705 0.128 152);
-  --logistics-red:   oklch(0.645 0.178 25);
+  --sidebar:                    var(--bg-sidebar);
+  --sidebar-foreground:         var(--text-secondary);
+  --sidebar-primary:            var(--brand-primary);
+  --sidebar-primary-foreground: var(--brand-on-primary);
+  --sidebar-accent:             var(--bg-overlay);
+  --sidebar-accent-foreground:  var(--text-primary);
+  --sidebar-border:             var(--border-base);
+  --sidebar-ring:               var(--border-accent);
 
-  --radius: 0.25rem; /* Sharper corners — enterprise feel */
+  /* Industrial accent palette (legacy compatibility) */
+  --logistics-amber: #f59e0b;
+  --logistics-cyan:  #0891b2;
+  --logistics-green: #059669;
+  --logistics-red:   #dc2626;
+
+  --radius: 0.25rem;
 }
 
 /* ═══════════════════════════════════════════════════════════════
@@ -205,11 +214,70 @@
 
   /* Label — Badge text, section headers */
   .text-label {
-    font-size: 11px;
+    font-size: 12px;
     font-weight: 500;
     letter-spacing: 0.06em;
     text-transform: uppercase;
     line-height: 1.4;
+  }
+
+  /* Page title — Operations Overview */
+  .page-title {
+    font-size: 36px;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    color: var(--text-primary);
+  }
+
+  /* Section heading — Recent Deliveries, Pipeline State */
+  .section-heading {
+    font-size: 24px;
+    font-weight: 600;
+    color: var(--text-secondary);
+  }
+
+  /* Metric value — 4, 1, 0 */
+  .metric-value {
+    font-size: 32px;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    color: var(--text-primary);
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* Metric label — USERS, ZONES, ITEMS */
+  .metric-label {
+    font-size: 11px;
+    font-weight: 500;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--text-tertiary);
+  }
+
+  /* Nav items */
+  .nav-item {
+    font-size: 14px;
+    font-weight: 400;
+    color: var(--text-secondary);
+  }
+  .nav-item-active {
+    font-weight: 500;
+    color: var(--text-primary);
+  }
+
+  /* Mono — IDs, codes */
+  .mono {
+    font-family: var(--font-mono);
+    font-size: 13px;
+    color: var(--text-secondary);
+  }
+
+  /* Badge / label text */
+  .badge-text {
+    font-size: 11px;
+    font-weight: 500;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
   }
 }
 
@@ -229,8 +297,15 @@
 
   body {
     @apply bg-background text-foreground;
+    font-family: var(--font-sans);
+    font-feature-settings: "ss01", "ss02", "cv01";
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    font-size: 14px;
+    font-weight: 400;
+    line-height: 1.5;
+    color: var(--text-primary);
     font-variant-numeric: tabular-nums;
-    letter-spacing: -0.01em;
   }
 
   h1, h2, h3, h4, h5, h6 {
