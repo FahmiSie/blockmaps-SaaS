@@ -15,6 +15,7 @@ declare module "next-auth" {
       name?: string | null;
       email?: string | null;
       image?: string | null;
+
     };
   }
 
@@ -63,6 +64,7 @@ export const authConfig: AuthOptions = {
             password: true,
             role: true,
             companyId: true,
+            emailVerified: true,
           },
         });
 
@@ -88,10 +90,10 @@ export const authConfig: AuthOptions = {
 
         // EMAIL VERIFICATION DINONAKTIFKAN
         // TODO: aktifkan kembali setelah flow verifikasi email siap
-        // if (!user.emailVerified) {
-        //   console.log("LOGIN_ERROR: Email belum diverifikasi:", credentials.email);
-        //   throw new Error("EMAIL_NOT_VERIFIED");
-        // }
+        if (!user.emailVerified) {
+          console.log("LOGIN_ERROR: Email belum diverifikasi:", credentials.email);
+          throw new Error("EMAIL_NOT_VERIFIED");
+        }
 
         console.log("LOGIN_SUCCESS:", user.email);
 
@@ -102,6 +104,7 @@ export const authConfig: AuthOptions = {
           image: user.image,
           role: user.role,
           companyId: user.companyId,
+          emailVerified: user.emailVerified,
         };
       },
     }),

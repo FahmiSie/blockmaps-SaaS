@@ -6,6 +6,7 @@ import bcrypt from "bcryptjs";
 import crypto from "crypto";
 import { prisma } from "@/server/db";
 import { auth } from "@/server/auth";
+import { sendVerificationEmail } from "./verify-token.email";
 
 // ── HELPERS ────────────────────────────────────────────────
 
@@ -88,8 +89,7 @@ export async function registerAction(
     });
 
     // Simulate sending email
-    console.log(`\n\n[DEV ONLY] Verify Email Link: http://localhost:3000/verify-email?token=${verifyToken}\n\n`);
-
+    await sendVerificationEmail(email, name, verifyToken);
     return { success: true, data: user };
   } catch (err) {
     console.error("[registerAction]", err);
