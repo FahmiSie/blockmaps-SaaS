@@ -12,7 +12,7 @@ export const companyRouter = createTRPCRouter({
   // ── GET CURRENT COMPANY ───────────────────────────────────
   getCurrent: companyProcedure.query(async ({ ctx }) => {
     const company = await ctx.prisma.company.findUnique({
-      where: { id: ctx.companyId },
+      where: { id: ctx.companyId, status: { not: "Delete" } },
       include: {
         _count: {
           select: { users: true, zones: true, items: true, deliveries: true },
@@ -39,26 +39,41 @@ export const companyRouter = createTRPCRouter({
       }),
     )
     .mutation(async ({ ctx, input }) => {
-      // Check user doesn't already belong to a company
+      // Check user doesn't already belong to an ACTIVE company
       const user = await ctx.prisma.user.findUnique({
         where: { id: ctx.session.user.id },
-        select: { companyId: true },
+        select: {
+          companyId: true,
+          company: { select: { status: true } },
+        },
       });
-      if (user?.companyId) {
+
+      if (user?.companyId && user.company?.status !== "Delete") {
         throw new TRPCError({
           code: "CONFLICT",
           message: "You already belong to a company.",
         });
       }
 
-      // Slug must be unique
-      const existing = await ctx.prisma.company.findUnique({
-        where: { slug: input.slug },
+      // Slug must be unique among ACTIVE companies only
+      const existing = await ctx.prisma.company.findFirst({
+        where: {
+          slug: input.slug,
+          status: { not: "Delete" }, // ✅ slug dari deleted company bisa dipakai lagi
+        },
       });
       if (existing) {
         throw new TRPCError({
           code: "CONFLICT",
           message: "Slug already taken. Please choose another.",
+        });
+      }
+
+      // Detach user dari deleted company dulu sebelum buat baru
+      if (user?.companyId && user.company?.status === "Delete") { 
+        await ctx.prisma.user.update({
+          where: { id: ctx.session.user.id },
+          data: { companyId: null, role: "OPERATOR" },
         });
       }
 
@@ -81,35 +96,18 @@ export const companyRouter = createTRPCRouter({
       return company;
     }),
 
-  deleteCompany: adminProcedure
-    .input(
-      z.object({
-        name: z.string().min(2).max(100).optional(),
-        slug: z
-          .string()
-          .min(2)
-          .max(50)
-          .regex(/^[a-z0-9-]+$/)
-          .optional(),
-      }),
-    )
-    .mutation(async ({ ctx, input }) => {
-      if (input.slug) {
-        const data = await ctx.prisma.company.findFirst({
-          where: { slug: input.slug },
-        });
-        if (!data) {
-          throw new TRPCError({
-            code: "NOT_FOUND",
-            message: "Data company not found.",
-          });
-        }
-        return ctx.prisma.company.update({
-          where: { id: ctx.companyId },
-          data: { status: "Delete" },
-        });
-      }
-    }),
+  deleteCompany: adminProcedure.mutation(async ({ ctx }) => {
+    const data = await ctx.prisma.company.findUnique({
+      where: { id: ctx.companyId, status: { not: "Delete" } },
+    });
+    if (!data)
+      throw new TRPCError({ code: "NOT_FOUND", message: "Company not found." });
+
+    return ctx.prisma.company.update({
+      where: { id: ctx.companyId },
+      data: { status: "Delete" },
+    });
+  }),
 
   // ── UPDATE COMPANY ────────────────────────────────────────
   update: adminProcedure
@@ -127,7 +125,11 @@ export const companyRouter = createTRPCRouter({
     .mutation(async ({ ctx, input }) => {
       if (input.slug) {
         const conflict = await ctx.prisma.company.findFirst({
-          where: { slug: input.slug, NOT: { id: ctx.companyId } },
+          where: {
+            slug: input.slug,
+            NOT: { id: ctx.companyId },
+            status: { not: "Delete" },
+          },
         });
         if (conflict) {
           throw new TRPCError({
