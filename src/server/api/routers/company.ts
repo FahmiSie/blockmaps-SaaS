@@ -32,7 +32,10 @@ export const companyRouter = createTRPCRouter({
           .string()
           .min(2)
           .max(50)
-          .regex(/^[a-z0-9-]+$/, "Only lowercase letters, numbers, and hyphens"),
+          .regex(
+            /^[a-z0-9-]+$/,
+            "Only lowercase letters, numbers, and hyphens",
+          ),
       }),
     )
     .mutation(async ({ ctx, input }) => {
@@ -76,6 +79,36 @@ export const companyRouter = createTRPCRouter({
       });
 
       return company;
+    }),
+
+  deleteCompany: adminProcedure
+    .input(
+      z.object({
+        name: z.string().min(2).max(100).optional(),
+        slug: z
+          .string()
+          .min(2)
+          .max(50)
+          .regex(/^[a-z0-9-]+$/)
+          .optional(),
+      }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      if (input.slug) {
+        const data = await ctx.prisma.company.findFirst({
+          where: { slug: input.slug },
+        });
+        if (!data) {
+          throw new TRPCError({
+            code: "NOT_FOUND",
+            message: "Data company not found.",
+          });
+        }
+        return ctx.prisma.company.update({
+          where: { id: ctx.companyId },
+          data: { status: "Delete" },
+        });
+      }
     }),
 
   // ── UPDATE COMPANY ────────────────────────────────────────
@@ -165,12 +198,11 @@ export const companyRouter = createTRPCRouter({
     }),
 
   // ── REMOVE LOGO ───────────────────────────────────────────
-  removeLogo: adminProcedure
-    .mutation(async ({ ctx }) => {
-      return ctx.prisma.company.update({
-        where: { id: ctx.companyId },
-        data: { logoUrl: null },
-        select: { id: true, name: true, logoUrl: true },
-      });
-    }),
+  removeLogo: adminProcedure.mutation(async ({ ctx }) => {
+    return ctx.prisma.company.update({
+      where: { id: ctx.companyId },
+      data: { logoUrl: null },
+      select: { id: true, name: true, logoUrl: true },
+    });
+  }),
 });

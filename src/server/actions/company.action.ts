@@ -18,7 +18,10 @@ const CreateCompanySchema = z.object({
     .string()
     .min(2)
     .max(50)
-    .regex(/^[a-z0-9-]+$/, "Only lowercase letters, numbers, and hyphens allowed"),
+    .regex(
+      /^[a-z0-9-]+$/,
+      "Only lowercase letters, numbers, and hyphens allowed",
+    ),
 });
 
 const UpdateCompanySchema = z.object({
@@ -60,7 +63,10 @@ export async function createCompanyAction(
 
     const existing = await prisma.company.findUnique({ where: { slug } });
     if (existing) {
-      return { success: false, error: "This slug is already taken. Please choose another." };
+      return {
+        success: false,
+        error: "This slug is already taken. Please choose another.",
+      };
     }
 
     const company = await prisma.$transaction(async (tx) => {
@@ -82,7 +88,10 @@ export async function createCompanyAction(
   } catch (err) {
     if ((err as Error).message === "NEXT_REDIRECT") throw err;
     console.error("[createCompanyAction]", err);
-    return { success: false, error: "Failed to create company. Please try again." };
+    return {
+      success: false,
+      error: "Failed to create company. Please try again.",
+    };
   }
 }
 
@@ -99,8 +108,13 @@ export async function updateCompanyAction(
     select: { companyId: true, role: true },
   });
 
-  if (!user?.companyId) return { success: false, error: "No company assigned." };
-  if (user.role !== "ADMIN") return { success: false, error: "Only admins can update company settings." };
+  if (!user?.companyId)
+    return { success: false, error: "No company assigned." };
+  if (user.role !== "ADMIN")
+    return {
+      success: false,
+      error: "Only admins can update company settings.",
+    };
 
   const parsed = UpdateCompanySchema.safeParse(formData);
   if (!parsed.success) {
@@ -126,5 +140,40 @@ export async function updateCompanyAction(
   } catch (err) {
     console.error("[updateCompanyAction]", err);
     return { success: false, error: "Failed to update company." };
+  }
+}
+// ── DELETE COMPANY ─────────────────────────────────────────
+
+export async function deleteCompanyAction(): Promise<
+  ActionResult<{ id: string; name: string; slug: string }>
+> {
+  const session = await auth();
+  if (!session?.user?.id) return { success: false, error: "Unauthorized." };
+
+  const user = await prisma.user.findUnique({
+    where: { id: session.user.id },
+    select: { companyId: true, role: true },
+  });
+
+  if (!user?.companyId)
+    return { success: false, error: "No company assigned." };
+  if (user.role !== "ADMIN")
+    return {
+      success: false,
+      error: "Only admins can update company settings.",
+    };
+
+  try {
+    const company = await prisma.company.update({
+      where: { id: user.companyId },
+      data: { status: "Delete" },
+      select: { id: true, name: true, slug: true },
+    });
+
+    revalidatePath("/admin/settings");
+    return { success: true, data: company };
+  } catch (err) {
+    console.error("[deleteCompanyAction]", err);
+    return { success: false, error: "Failed to delete company." };
   }
 }
