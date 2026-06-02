@@ -909,18 +909,9 @@ export function CompanyClient({ currentUser }: { currentUser: CurrentUser }) {
                 style={{ borderColor: "rgba(239,68,68,0.1)" }}
               >
                 <div>
-                  <p
-                    className="text-[13px] font-medium"
-                    style={{ color: "var(--text-primary)" }}
-                  >
-                    Delete Company
-                  </p>
-                  <p
-                    className="text-[11px]"
-                    style={{ color: "var(--text-tertiary)" }}
-                  >
-                    Permanently delete {company.name} and all associated zones,
-                    inventory, and delivery records.
+                  <p className="text-[13px] font-medium" style={{ color: "var(--text-primary)" }}>Archive Company</p>
+                  <p className="text-[11px]" style={{ color: "var(--text-tertiary)" }}>
+                    Archived Company {company.name} and all associated zones, inventory, and delivery records.
                   </p>
                 </div>
                 <button
@@ -929,7 +920,7 @@ export function CompanyClient({ currentUser }: { currentUser: CurrentUser }) {
                   style={{ background: "#ef4444", color: "#fff" }}
                 >
                   <Trash2 className="h-3.5 w-3.5" />
-                  Delete Company
+                  Archive Company
                 </button>
               </div>
             )}
@@ -959,9 +950,9 @@ export function CompanyClient({ currentUser }: { currentUser: CurrentUser }) {
       )}
       {dangerModal === "delete" && (
         <DangerModal
-          title="Delete Company"
-          description={`This will permanently destroy ${company.name} and ALL data including zones, inventory, and delivery history. This cannot be undone.`}
-          confirmLabel="Delete Forever"
+          title="Archive Company"
+          description={`This will archive ${company.name} and ALL data including zones, inventory, and delivery history. This cannot be undone.`}
+          confirmLabel="Archive Company"
           confirmText={company.name}
           loading={isCompanyDeleting}
           onConfirm={handleCompanyRemove}

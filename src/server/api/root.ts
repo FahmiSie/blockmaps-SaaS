@@ -17,7 +17,7 @@ export const appRouter = createTRPCRouter({
   zone: zoneRouter,
   item: itemRouter,
   inventory: inventoryRouter,
-   payment: paymentRouter,
+  payment: paymentRouter,
   delivery: deliveryRouter,
 });
 

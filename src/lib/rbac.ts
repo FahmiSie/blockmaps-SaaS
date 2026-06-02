@@ -17,6 +17,7 @@ export const ROLE_ALLOWED_ROUTES: Record<Role, string[]> = {
     "/dashboard/settings",
     "/dashboard/users",
     "/dashboard/company",
+    "/dashboard/billing",
   ],
   MANAGER: [
     "/dashboard",
@@ -27,6 +28,7 @@ export const ROLE_ALLOWED_ROUTES: Record<Role, string[]> = {
     "/dashboard/settings",
     "/dashboard/users",
     "/dashboard/company",
+    "/dashboard/billing",
   ],
   OPERATOR: [
     "/dashboard",

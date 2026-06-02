@@ -17,6 +17,7 @@ import {
   PanelLeftClose,
   PanelLeftOpen,
   ChevronDown,
+  CreditCard,
 } from "lucide-react";
 import { useState, useEffect } from "react";
 import { type Role, ROLE_ALLOWED_ROUTES } from "@/lib/rbac";
@@ -43,6 +44,7 @@ const ALL_NAV_ITEMS: NavItem[] = [
   { label: "Settings",   href: "/dashboard/settings",   icon: Settings,                        section: "nav" },
   { label: "Users",      href: "/dashboard/users",      icon: Users,                           section: "workspace" },
   { label: "Company",    href: "/dashboard/company",    icon: Building2,                       section: "workspace" },
+  { label: "Billing",    href: "/dashboard/billing",    icon: CreditCard,                      section: "workspace" },
 ];
 
 const ROLE_BADGE: Record<Role, { label: string; color: string; bg: string }> = {

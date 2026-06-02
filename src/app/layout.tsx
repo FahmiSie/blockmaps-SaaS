@@ -1,7 +1,7 @@
 import "@/styles/globals.css";
 
 import { type Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import { Poppins, Geist_Mono } from "next/font/google";
 
 import { TRPCReactProvider } from "@/trpc/react";
 import { Toaster } from "sonner";
@@ -13,23 +13,25 @@ export const metadata: Metadata = {
   icons: [{ rel: "icon", url: "/favicon.ico" }],
 };
 
-const geist = Geist({
+const poppins = Poppins({
   subsets: ['latin'],
-  variable: '--font-geist',
+  variable: '--font-poppins',
   weight: ['400', '500', '600', '700'],
+  display: 'swap',
 })
 
 const geistMono = Geist_Mono({
   subsets: ['latin'],
   variable: '--font-geist-mono',
   weight: ['400', '500'],
+  display: 'swap',
 })
 
 export default function RootLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
   return (
-    <html lang="en" className={`${geist.variable} ${geistMono.variable} dark`} suppressHydrationWarning>
+    <html lang="en" className={`${poppins.variable} ${geistMono.variable} dark`} suppressHydrationWarning>
       <body className="min-h-screen bg-background text-foreground antialiased">
         <TRPCReactProvider>{children}</TRPCReactProvider>
         <Toaster theme="dark" position="top-right" richColors />

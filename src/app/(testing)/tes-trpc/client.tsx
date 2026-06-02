@@ -528,10 +528,6 @@ function CompanyTab({ utils }: { utils: ReturnType<typeof api.useUtils> }) {
             <StatusRow label="id" value={company.id} />
             <StatusRow label="name" value={company.name} />
             <StatusRow label="slug" value={company.slug} />
-            <StatusRow label="users" value={company._count.users} />
-            <StatusRow label="zones" value={company._count.zones} />
-            <StatusRow label="items" value={company._count.items} />
-            <StatusRow label="deliveries" value={company._count.deliveries} />
           </>
         )}
       </Section>

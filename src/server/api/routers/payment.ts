@@ -89,18 +89,6 @@ export const paymentRouter = createTRPCRouter({
               });
             }
 
-            if (
-              realStatus === "expire" ||
-              realStatus === "cancel" ||
-              realStatus === "deny" ||
-              realStatus === "failure"
-            ) {
-              await ctx.prisma.company.update({
-                where: { id: tx.company_id },
-                data: { status: "Delete" },
-              });
-            }
-
             tx.status = realStatus;
           }
         } catch {
@@ -145,8 +133,6 @@ export const paymentRouter = createTRPCRouter({
     .input(
       z.object({
         orderId: z.string(),
-        status: z.string(),
-        paymentType: z.string().nullable(),
       }),
     )
     .mutation(async ({ ctx, input }) => {
@@ -165,36 +151,37 @@ export const paymentRouter = createTRPCRouter({
         throw new TRPCError({ code: "FORBIDDEN" });
       }
 
+      // Fetch the real, verified status from Midtrans Core API
+      let realStatus = "pending";
+      let paymentType: string | null = null;
+      try {
+        const midtransStatus = await coreApi.transaction.status(input.orderId);
+        realStatus = midtransStatus.transaction_status as string;
+        paymentType = (midtransStatus.payment_type as string) ?? null;
+      } catch {
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: "Failed to verify transaction status with Midtrans.",
+        });
+      }
+
       await ctx.prisma.transaction.update({
         where: { order_id: input.orderId },
         data: {
-          status: input.status,
-          payment_type: input.paymentType,
+          status: realStatus,
+          payment_type: paymentType,
         },
       });
 
       // ── Aktivasi setelah settlement ──────────────────────
-      if (input.status === "settlement" || input.status === "capture") {
+      if (realStatus === "settlement" || realStatus === "capture") {
         await ctx.prisma.company.update({
           where: { id: tx.company_id },
           data: { status: "Active" },
         });
       }
 
-      // ── Nonaktifkan jika expire/cancel/fraud ─────────────
-      if (
-        input.status === "expire" ||
-        input.status === "cancel" ||
-        input.status === "deny" ||
-        input.status === "failure"
-      ) {
-        await ctx.prisma.company.update({
-          where: { id: tx.company_id },
-          data: { status: "Delete" },
-        });
-      }
-
-      return { ok: true };
+      return { ok: true, status: realStatus };
     }),
 
   // ── REFRESH SNAP TOKEN (jika token expired) ────────────
