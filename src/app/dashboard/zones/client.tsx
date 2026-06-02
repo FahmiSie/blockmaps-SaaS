@@ -12,8 +12,14 @@ import {
   Trash2,
   Pencil,
   Save,
+  Route,
+  Navigation,
+  Clock,
+  Footprints,
+  Truck as Forklift,
 } from "lucide-react";
 import { createZoneAction, deleteZoneAction, updateZoneAction } from "@/server/actions/zone.action";
+import { buildGraph, findShortestPath, RouteResult, Node } from "@/lib/routing";
 
 // ─── Zone type config ────────────────────────────────────────────
 const ZONE_TYPE_CONFIG = {
@@ -54,13 +60,23 @@ export type LayoutZone = {
 function ZoneBlock({
   layoutZone,
   selected,
+  isRouteStart,
+  isRouteEnd,
+  isRoutePath,
+  isDimmed,
   onClick,
   onPositionChange,
+  onSizeChange,
 }: {
   layoutZone: LayoutZone;
   selected: boolean;
+  isRouteStart?: boolean;
+  isRouteEnd?: boolean;
+  isRoutePath?: boolean;
+  isDimmed?: boolean;
   onClick: () => void;
   onPositionChange?: (id: string, dx: number, dy: number) => void;
+  onSizeChange?: (id: string, dw: number, dh: number) => void;
 }) {
   const { zone, renderX, renderY, renderW, renderH, hasCollision } = layoutZone;
   const cfg = ZONE_TYPE_CONFIG[zone.type as ZoneType] ?? ZONE_TYPE_CONFIG.STORAGE;
@@ -94,6 +110,33 @@ function ZoneBlock({
     el.addEventListener("pointerup", onPointerUp);
   };
 
+  const handleResizeDown = (e: React.PointerEvent) => {
+    if (e.button !== 0 || !onSizeChange) return;
+    e.stopPropagation(); // prevent triggering drag
+    const el = e.currentTarget as HTMLElement;
+    el.setPointerCapture(e.pointerId);
+
+    let startX = e.clientX;
+    let startY = e.clientY;
+
+    const onPointerMove = (ev: PointerEvent) => {
+      const dw = ev.clientX - startX;
+      const dh = ev.clientY - startY;
+      onSizeChange(zone.id, dw, dh);
+      startX = ev.clientX;
+      startY = ev.clientY;
+    };
+
+    const onPointerUp = (ev: PointerEvent) => {
+      el.releasePointerCapture(ev.pointerId);
+      el.removeEventListener("pointermove", onPointerMove);
+      el.removeEventListener("pointerup", onPointerUp);
+    };
+
+    el.addEventListener("pointermove", onPointerMove);
+    el.addEventListener("pointerup", onPointerUp);
+  };
+
   return (
     <div
       onPointerDown={handlePointerDown}
@@ -105,12 +148,20 @@ function ZoneBlock({
         cursor: "grab",
       }}
       className={`absolute flex flex-col justify-between rounded border p-3 text-left transition-all duration-300 ${
-        selected ? "z-20" : "z-10 hover:z-30"
+        selected ? "z-20" : isRoutePath ? "z-20" : "z-10 hover:z-30"
       } ${
         hasCollision
           ? "border-destructive bg-destructive/10 ring-1 ring-destructive/30"
+          : isRouteStart
+          ? "border-logistics-green bg-logistics-green/10 ring-2 ring-logistics-green shadow-lg shadow-logistics-green/20"
+          : isRouteEnd
+          ? "border-logistics-amber bg-logistics-amber/10 ring-2 ring-logistics-amber shadow-lg shadow-logistics-amber/20"
+          : isRoutePath
+          ? "border-logistics-cyan bg-logistics-cyan/5 ring-1 ring-logistics-cyan shadow-[0_0_15px_rgba(0,255,255,0.15)]"
           : !zone.isActive
           ? "border-border/20 bg-card/20 opacity-40"
+          : isDimmed
+          ? "border-border/40 bg-card/40 opacity-30 grayscale-[50%]"
           : selected
           ? "border-foreground bg-accent/30 shadow-md ring-1 ring-foreground/20"
           : "border-border bg-card hover:border-foreground/40 hover:bg-accent/40"
@@ -127,17 +178,44 @@ function ZoneBlock({
       {/* Zone name */}
       <div className="my-1">
         <p className="truncate text-[13px] font-medium tracking-tight text-foreground">{zone.name}</p>
-        <p className="mt-0.5 font-mono text-[9px] tracking-wider text-muted-foreground uppercase">
-          {zone.inventory?.length ?? 0} registered SKU{(zone.inventory?.length ?? 0) !== 1 ? "s" : ""}
-        </p>
+        
+        {/* Inventory Preview */}
+        <div className="mt-2 space-y-1">
+          {(!zone.inventory || zone.inventory.length === 0) ? (
+            <p className="font-mono text-[9px] tracking-wider text-muted-foreground/60 uppercase">No stock assigned</p>
+          ) : (
+            <>
+              {zone.inventory.slice(0, 3).map((inv, i) => (
+                <div key={i} className="flex justify-between items-center text-[10px] font-mono">
+                  <span className="truncate text-muted-foreground max-w-[100px]">{inv.item.name}</span>
+                  <span className="text-foreground whitespace-nowrap">{inv.quantity} {inv.item.unit}</span>
+                </div>
+              ))}
+              {zone.inventory.length > 3 && (
+                <div className="text-[9px] text-logistics-cyan font-mono italic">
+                  +{zone.inventory.length - 3} more items
+                </div>
+              )}
+            </>
+          )}
+        </div>
       </div>
 
       {/* Coordinates / Telemetry footer */}
-      <div className="flex items-center justify-between font-mono text-[9px] text-muted-foreground/45 tabular-nums">
+      <div className="flex items-center justify-between font-mono text-[9px] text-muted-foreground/45 tabular-nums border-t border-border/40 pt-1 mt-1">
         <span>LOC: {renderX},{renderY}</span>
         <span>DIM: {renderW}x{renderH}</span>
       </div>
 
+      {/* Resize Handle */}
+      {onSizeChange && (
+        <div
+          onPointerDown={handleResizeDown}
+          className="absolute bottom-0 right-0 h-4 w-4 cursor-se-resize flex items-end justify-end p-0.5 opacity-50 hover:opacity-100"
+        >
+          <div className="w-2 h-2 border-r-2 border-b-2 border-muted-foreground/60" />
+        </div>
+      )}
     </div>
   );
 }
@@ -523,7 +601,7 @@ function ZoneDetailPanel({
               className="flex w-full items-center justify-center gap-1.5 rounded-sm border border-destructive/20 py-2 font-mono text-[10px] uppercase tracking-widest text-destructive transition hover:bg-destructive/10 disabled:opacity-50"
             >
               <Trash2 className="h-3 w-3" />
-              DECOMMISSION ZONE
+              DELETE ZONE
             </button>
           </>
         )}
@@ -543,8 +621,30 @@ export function ZonesClient() {
   const [savingLayout, setSavingLayout] = useState(false);
   const [toastMsg, setToastMsg] = useState<{ type: "success" | "error", message: string } | null>(null);
   const [localOffsets, setLocalOffsets] = useState<Record<string, { dx: number; dy: number }>>({});
+  const [localSizes, setLocalSizes] = useState<Record<string, { dw: number; dh: number }>>({});
   const mapRef = useRef<HTMLDivElement>(null);
   const [mapWidth, setMapWidth] = useState(1000);
+
+  // Routing State
+  const [routeStartId, setRouteStartId] = useState<string>("");
+  const [routeEndId, setRouteEndId] = useState<string>("");
+  const [routeResult, setRouteResult] = useState<RouteResult | null>(null);
+
+  // Build searchable items
+  const routeOptions = useMemo(() => {
+    if (!zones) return [];
+    const options: { id: string, label: string, type: 'zone' | 'item' }[] = [];
+    
+    zones.forEach(z => {
+      if (z.isActive) {
+        options.push({ id: z.id, label: `Zone: ${z.name}`, type: 'zone' });
+        z.inventory?.forEach(inv => {
+          options.push({ id: z.id, label: `Item: ${inv.item.name} in ${z.name}`, type: 'item' });
+        });
+      }
+    });
+    return options.sort((a, b) => a.label.localeCompare(b.label));
+  }, [zones]);
 
   // Measure map container width dynamically
   useEffect(() => {
@@ -597,6 +697,29 @@ export function ZonesClient() {
     });
   }, [zones, mapWidth]);
 
+  const handleSizeChange = useCallback((id: string, dw: number, dh: number) => {
+    setLocalSizes((prev) => {
+      const current = prev[id] ?? { dw: 0, dh: 0 };
+      const newDw = current.dw + dw;
+      const newDh = current.dh + dh;
+
+      const zone = zones?.find(z => z.id === id);
+      if (!zone) return { ...prev, [id]: { dw: newDw, dh: newDh } };
+
+      const rawW = zone.width;
+      const rawH = zone.height;
+      
+      let targetW = rawW + newDw;
+      let targetH = rawH + newDh;
+
+      // Constraints
+      targetW = Math.max(160, Math.min(480, targetW));
+      targetH = Math.max(120, Math.min(320, targetH));
+
+      return { ...prev, [id]: { dw: targetW - rawW, dh: targetH - rawH } };
+    });
+  }, [zones]);
+
   const layoutZones = useMemo(() => {
     if (!zones) return [];
 
@@ -606,9 +729,12 @@ export function ZonesClient() {
     for (const zone of sortedZones) {
       const rawX = zone.positionX;
       const rawY = zone.positionY;
+      const rawW = zone.width || 224;
+      const rawH = zone.height || 160;
 
-      let renderW = Math.max(GRID_SIZE, Math.round(zone.width / GRID_SIZE) * GRID_SIZE);
-      let renderH = Math.max(GRID_SIZE, Math.round(zone.height / GRID_SIZE) * GRID_SIZE);
+      const sizeOffset = localSizes[zone.id] ?? { dw: 0, dh: 0 };
+      let renderW = Math.max(160, Math.round((rawW + sizeOffset.dw) / GRID_SIZE) * GRID_SIZE);
+      let renderH = Math.max(120, Math.round((rawH + sizeOffset.dh) / GRID_SIZE) * GRID_SIZE);
 
       const offset = localOffsets[zone.id] ?? { dx: 0, dy: 0 };
       let renderX = Math.round((rawX + offset.dx) / GRID_SIZE) * GRID_SIZE;
@@ -675,6 +801,7 @@ export function ZonesClient() {
   const bulkUpdate = api.zone.bulkUpdatePositions.useMutation({
     onSuccess: () => {
       setLocalOffsets({});
+      setLocalSizes({});
       refresh();
       setToastMsg({ type: "success", message: "Layout saved successfully" });
       setTimeout(() => setToastMsg(null), 3000);
@@ -689,8 +816,11 @@ export function ZonesClient() {
   async function handleSaveLayout() {
     setSavingLayout(true);
     setToastMsg(null);
-    const moved = layoutZones.filter(lz => lz.rawX !== lz.renderX || lz.rawY !== lz.renderY);
-    const updates = moved.map(lz => ({
+    const modified = layoutZones.filter(lz => 
+      lz.rawX !== lz.renderX || lz.rawY !== lz.renderY || 
+      lz.zone.width !== lz.renderW || lz.zone.height !== lz.renderH
+    );
+    const updates = modified.map(lz => ({
       id: lz.zone.id,
       positionX: lz.renderX,
       positionY: lz.renderY,
@@ -719,6 +849,32 @@ export function ZonesClient() {
     void utils.zone.stats.invalidate();
   }
 
+  function handleCalculateRoute() {
+    if (!routeStartId || !routeEndId || routeStartId === routeEndId) return;
+
+    const nodes: Node[] = layoutZones.map(lz => ({
+      id: lz.zone.id,
+      x: lz.renderX + lz.renderW / 2,
+      y: lz.renderY + lz.renderH / 2,
+    }));
+
+    const graph = buildGraph(nodes, 3);
+    const result = findShortestPath(graph, routeStartId, routeEndId);
+    
+    if (result) {
+      setRouteResult(result);
+    } else {
+      setToastMsg({ type: "error", message: "No route found." });
+      setTimeout(() => setToastMsg(null), 3000);
+    }
+  }
+
+  function handleClearRoute() {
+    setRouteStartId("");
+    setRouteEndId("");
+    setRouteResult(null);
+  }
+
   const totalByType = Object.entries(ZONE_TYPE_CONFIG).map(([type, cfg]) => ({
     type,
     label: cfg.label,
@@ -726,7 +882,10 @@ export function ZonesClient() {
     count: zones?.filter((z) => z.type === type).length ?? 0,
   }));
 
-  const hasUnsavedLayout = layoutZones.some(lz => lz.rawX !== lz.renderX || lz.rawY !== lz.renderY);
+  const hasUnsavedLayout = layoutZones.some(lz => 
+    lz.rawX !== lz.renderX || lz.rawY !== lz.renderY || 
+    lz.zone.width !== lz.renderW || lz.zone.height !== lz.renderH
+  );
   const hasCollisions = layoutZones.some(lz => lz.hasCollision);
 
   return (
@@ -889,15 +1048,132 @@ export function ZonesClient() {
                 </div>
               )}
 
-              {layoutZones.map((lz) => (
-                <ZoneBlock
-                  key={lz.zone.id}
-                  layoutZone={lz}
-                  selected={selectedId === lz.zone.id}
-                  onClick={() => setSelectedId(selectedId === lz.zone.id ? null : lz.zone.id)}
-                  onPositionChange={handlePositionChange}
-                />
-              ))}
+              {/* Route Finder Panel */}
+              <div className="absolute right-4 top-4 w-[280px] rounded border border-border bg-card/85 backdrop-blur-sm z-40 shadow-xl p-4 flex flex-col gap-3">
+                <div className="flex items-center gap-2 border-b border-border/50 pb-2 mb-1">
+                  <Route className="h-4 w-4 text-logistics-cyan" />
+                  <h3 className="text-[12px] font-semibold tracking-tight uppercase font-mono">Route Finder</h3>
+                </div>
+                
+                <div className="flex flex-col gap-2">
+                  <div className="space-y-1">
+                    <label className="text-[10px] uppercase font-mono tracking-widest text-muted-foreground">From</label>
+                    <select
+                      value={routeStartId}
+                      onChange={e => setRouteStartId(e.target.value)}
+                      className="w-full bg-background border border-border rounded px-2 py-1.5 text-[11px] text-foreground focus:outline-none focus:border-logistics-cyan"
+                    >
+                      <option value="">Select origin...</option>
+                      {routeOptions.map((opt, i) => <option key={`${opt.id}-${i}`} value={opt.id}>{opt.label}</option>)}
+                    </select>
+                  </div>
+                  
+                  <div className="space-y-1">
+                    <label className="text-[10px] uppercase font-mono tracking-widest text-muted-foreground">To</label>
+                    <select
+                      value={routeEndId}
+                      onChange={e => setRouteEndId(e.target.value)}
+                      className="w-full bg-background border border-border rounded px-2 py-1.5 text-[11px] text-foreground focus:outline-none focus:border-logistics-cyan"
+                    >
+                      <option value="">Select destination...</option>
+                      {routeOptions.map((opt, i) => <option key={`${opt.id}-${i}`} value={opt.id}>{opt.label}</option>)}
+                    </select>
+                  </div>
+                </div>
+
+                <div className="flex gap-2 mt-2">
+                  <button
+                    onClick={handleClearRoute}
+                    className="flex-1 border border-border rounded py-1.5 text-[10px] uppercase font-mono tracking-widest text-muted-foreground hover:bg-accent transition"
+                  >
+                    Clear
+                  </button>
+                  <button
+                    onClick={handleCalculateRoute}
+                    disabled={!routeStartId || !routeEndId || routeStartId === routeEndId}
+                    className="flex-[2] bg-logistics-cyan text-black rounded py-1.5 text-[10px] uppercase font-mono tracking-widest font-semibold hover:brightness-110 transition disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-1.5"
+                  >
+                    <Navigation className="h-3 w-3" /> Find Route
+                  </button>
+                </div>
+                
+                {routeResult && (
+                  <div className="mt-3 pt-3 border-t border-border/50 flex flex-col gap-2">
+                    <div className="flex justify-between items-center text-[11px]">
+                      <span className="text-muted-foreground">Distance</span>
+                      <span className="font-mono font-medium">{routeResult.totalDistance.toFixed(1)}m</span>
+                    </div>
+                    <div className="flex justify-between items-center text-[11px]">
+                      <span className="text-muted-foreground flex items-center gap-1.5"><Footprints className="h-3 w-3" /> Walking</span>
+                      <span className="font-mono font-medium">{Math.ceil(routeResult.walkingTimeSeconds)}s</span>
+                    </div>
+                    <div className="flex justify-between items-center text-[11px]">
+                      <span className="text-muted-foreground flex items-center gap-1.5"><Forklift className="h-3 w-3" /> Forklift</span>
+                      <span className="font-mono font-medium">{Math.ceil(routeResult.forkliftTimeSeconds)}s</span>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* SVG Route Overlay */}
+              {routeResult && (
+                <svg className="absolute inset-0 z-15 pointer-events-none" style={{ minWidth: mapWidth, minHeight: 2000 }}>
+                  <defs>
+                    <marker id="arrowhead" markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto">
+                      <polygon points="0 0, 6 3, 0 6" fill="rgba(0, 255, 255, 0.8)" />
+                    </marker>
+                  </defs>
+                  {(() => {
+                    const points = routeResult.path.map(id => {
+                      const lz = layoutZones.find(z => z.zone.id === id);
+                      if (!lz) return null;
+                      return `${lz.renderX + lz.renderW / 2},${lz.renderY + lz.renderH / 2}`;
+                    }).filter(Boolean);
+                    
+                    if (points.length < 2) return null;
+
+                    const lines = [];
+                    for (let i = 0; i < points.length - 1; i++) {
+                      const [x1, y1] = points[i]!.split(',').map(Number);
+                      const [x2, y2] = points[i+1]!.split(',').map(Number);
+                      lines.push(
+                        <line
+                          key={i}
+                          x1={x1} y1={y1} x2={x2} y2={y2}
+                          stroke="rgba(0, 255, 255, 0.6)"
+                          strokeWidth="3"
+                          strokeDasharray="8 6"
+                          markerEnd="url(#arrowhead)"
+                          className="animate-[dash_1s_linear_infinite]"
+                        />
+                      );
+                    }
+                    return lines;
+                  })()}
+                </svg>
+              )}
+
+              {layoutZones.map((lz) => {
+                const isRoutePath = routeResult?.path.includes(lz.zone.id);
+                const isRouteStart = routeResult?.path[0] === lz.zone.id;
+                const isRouteEnd = routeResult?.path[routeResult.path.length - 1] === lz.zone.id;
+                const isDimmed = routeResult ? !isRoutePath : false;
+
+                return (
+                  <ZoneBlock
+                    key={lz.zone.id}
+                    layoutZone={lz}
+                    selected={selectedId === lz.zone.id}
+                    isRoutePath={isRoutePath}
+                    isRouteStart={isRouteStart}
+                    isRouteEnd={isRouteEnd}
+                    isDimmed={isDimmed}
+                    onClick={() => setSelectedId(selectedId === lz.zone.id ? null : lz.zone.id)}
+                    onPositionChange={handlePositionChange}
+                    onSizeChange={handleSizeChange}
+                  />
+                );
+              })}
             </div>
           ) : (
             /* ── LIST VIEW ── */

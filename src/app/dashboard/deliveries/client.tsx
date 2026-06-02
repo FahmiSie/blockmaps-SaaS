@@ -19,6 +19,7 @@ import {
   startDeliveryAction,
   completeDeliveryAction,
   cancelDeliveryAction,
+  createDeliveryRequestAction,
 } from "@/server/actions/delivery.action";
 
 type DeliveryStatus = "PENDING" | "APPROVED" | "REJECTED" | "IN_PROGRESS" | "COMPLETED";
@@ -41,11 +42,226 @@ function StatusBadge({ status }: { status: string }) {
   );
 }
 
+// ─── Create Delivery Modal ───────────────────────────────────────
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import * as z from "zod";
+
+function CreateDeliveryModal({
+  onClose,
+  onSuccess,
+}: {
+  onClose: () => void;
+  onSuccess: () => void;
+}) {
+  const { data: zones } = api.zone.list.useQuery({ includeInactive: false });
+
+  const form = useForm({
+    defaultValues: {
+      fromZoneId: "",
+      toZoneId: "",
+      itemId: "",
+      quantity: 1,
+      priority: "NORMAL",
+      notes: "",
+    },
+    mode: "onChange",
+  });
+
+  const fromZoneId = form.watch("fromZoneId");
+  const toZoneId = form.watch("toZoneId");
+  const itemId = form.watch("itemId");
+  const quantity = form.watch("quantity");
+  const notes = form.watch("notes");
+
+  const { data: sourceInventory, isLoading: loadingInventory } = api.inventory.byZone.useQuery(
+    { zoneId: fromZoneId },
+    { enabled: !!fromZoneId }
+  );
+
+  const availableQty = sourceInventory?.find((i) => i.itemId === itemId)?.quantity ?? 0;
+  const currentInv = sourceInventory?.find((i) => i.itemId === itemId);
+
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!fromZoneId || !toZoneId || !itemId || quantity < 1 || quantity > availableQty) return;
+    setLoading(true);
+    setError("");
+
+    const result = await createDeliveryRequestAction({
+      fromZoneId,
+      toZoneId,
+      notes: notes.trim() || undefined,
+      items: [{ itemId, quantity }],
+    });
+
+    setLoading(false);
+    if (!result.success) {
+      setError(result.error);
+      return;
+    }
+
+    onSuccess();
+    onClose();
+  }
+
+  const destinationZones = zones?.filter((z) => z.id !== fromZoneId) ?? [];
+
+  const isValid = 
+    fromZoneId && 
+    toZoneId && 
+    itemId && 
+    quantity >= 1 && 
+    quantity <= availableQty && 
+    !loading;
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+      <div className="w-full max-w-sm rounded-lg border border-border bg-card p-5 shadow-2xl flex flex-col max-h-[90vh]">
+        <div className="mb-4 flex items-center gap-2">
+          <Truck className="h-4 w-4 text-logistics-amber" />
+          <h2 className="text-[14px] font-medium tracking-tight text-foreground">Create Delivery Request</h2>
+        </div>
+
+        <form onSubmit={handleSubmit} className="flex flex-col gap-4 overflow-y-auto pr-1">
+          <div className="space-y-1.5">
+            <label className="text-[12px] font-medium tracking-tight text-muted-foreground/80">
+              From Zone
+            </label>
+            <select
+              {...form.register("fromZoneId")}
+              onChange={(e) => {
+                form.setValue("fromZoneId", e.target.value);
+                form.setValue("itemId", "");
+                form.setValue("quantity", 1);
+              }}
+              className="w-full rounded-md border border-border bg-background px-3 py-2 text-xs text-foreground focus:border-logistics-amber focus:outline-none focus:ring-1 focus:ring-logistics-amber/40"
+              required
+            >
+              <option value="">Select source zone...</option>
+              {zones?.map((z) => (
+                <option key={z.id} value={z.id}>{z.name}</option>
+              ))}
+            </select>
+          </div>
+
+          <div className="space-y-1.5">
+            <label className="text-[12px] font-medium tracking-tight text-muted-foreground/80">
+              To Zone
+            </label>
+            <select
+              {...form.register("toZoneId")}
+              className="w-full rounded-md border border-border bg-background px-3 py-2 text-xs text-foreground focus:border-logistics-amber focus:outline-none focus:ring-1 focus:ring-logistics-amber/40"
+              required
+            >
+              <option value="">Select destination zone...</option>
+              {destinationZones.map((z) => (
+                <option key={z.id} value={z.id}>{z.name}</option>
+              ))}
+            </select>
+          </div>
+
+          <div className="space-y-1.5">
+            <label className="text-[12px] font-medium tracking-tight text-muted-foreground/80">
+              Item
+            </label>
+            <select
+              {...form.register("itemId")}
+              disabled={!fromZoneId || loadingInventory || !sourceInventory?.length}
+              className="w-full rounded-md border border-border bg-background px-3 py-2 text-xs text-foreground focus:border-logistics-amber focus:outline-none disabled:opacity-50"
+              required
+            >
+              <option value="">{loadingInventory ? "Loading items..." : "Select item..."}</option>
+              {sourceInventory?.map((inv) => (
+                <option key={inv.itemId} value={inv.itemId}>
+                  {inv.item.name} ({inv.item.sku})
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div className="space-y-1.5">
+            <label className="text-[12px] font-medium tracking-tight text-muted-foreground/80">
+              Quantity
+            </label>
+            <input
+              type="number"
+              {...form.register("quantity", { valueAsNumber: true })}
+              disabled={!itemId}
+              min={1}
+              max={availableQty}
+              className="w-full rounded-md border border-border bg-background px-3 py-2 text-xs text-foreground focus:border-logistics-amber focus:outline-none disabled:opacity-50"
+              required
+            />
+            {itemId && (
+              <p className={`text-[10px] mt-0.5 ${quantity > availableQty ? "text-red-500" : "text-muted-foreground/80"}`}>
+                Available: {availableQty} {currentInv?.item.unit}
+              </p>
+            )}
+          </div>
+
+          <div className="space-y-1.5">
+            <label className="text-[12px] font-medium tracking-tight text-muted-foreground/80">
+              Priority
+            </label>
+            <select
+              {...form.register("priority")}
+              className="w-full rounded-md border border-border bg-background px-3 py-2 text-xs text-foreground focus:border-logistics-amber focus:outline-none"
+            >
+              <option value="LOW">Low</option>
+              <option value="NORMAL">Normal</option>
+              <option value="HIGH">High</option>
+            </select>
+          </div>
+
+          <div className="space-y-1.5">
+            <label className="text-[12px] font-medium tracking-tight text-muted-foreground/80">
+              Notes (Optional)
+            </label>
+            <textarea
+              {...form.register("notes")}
+              placeholder="e.g. Handle with care..."
+              className="w-full rounded-md border border-border bg-background px-3 py-2 text-xs text-foreground placeholder:text-muted-foreground/50 focus:border-logistics-amber focus:outline-none h-16 resize-none"
+            />
+          </div>
+
+          {error && (
+            <p className="rounded-md bg-destructive/10 px-3 py-2 text-[11px] text-destructive shrink-0">
+              {error}
+            </p>
+          )}
+
+          <div className="flex gap-2 pt-2 border-t border-border shrink-0 mt-2">
+            <button
+              type="button"
+              onClick={onClose}
+              className="flex-1 rounded-md border border-border py-2 text-xs font-medium text-muted-foreground transition hover:bg-accent"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              disabled={!isValid}
+              className="flex-1 rounded-md bg-logistics-amber py-2 text-xs font-medium tracking-tight text-black transition hover:brightness-110 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {loading ? "Submitting…" : "Submit Request"}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+
 // ─── Main Component ──────────────────────────────────────────────
 export function DeliveriesClient({ user }: { user: { id: string; role: string } }) {
   const utils = api.useUtils();
   const [statusFilter, setStatusFilter] = useState<DeliveryStatus | "ALL">("ALL");
   const [loadingId, setLoadingId] = useState<string | null>(null);
+  const [showCreate, setShowCreate] = useState(false);
 
   const { data, isLoading } = api.delivery.list.useQuery({
     page: 1,
@@ -58,21 +274,38 @@ export function DeliveriesClient({ user }: { user: { id: string; role: string } 
   async function handleAction(id: string, action: "APPROVE" | "REJECT" | "START" | "COMPLETE" | "CANCEL") {
     setLoadingId(id);
     try {
-      if (action === "APPROVE") await approveDeliveryAction(id);
-      if (action === "REJECT") await rejectDeliveryAction(id, "Rejected via dashboard");
-      if (action === "START") await startDeliveryAction(id);
-      if (action === "COMPLETE") await completeDeliveryAction(id);
-      if (action === "CANCEL") await cancelDeliveryAction(id);
+      let res;
+      if (action === "APPROVE") res = await approveDeliveryAction(id);
+      if (action === "REJECT") res = await rejectDeliveryAction(id, "Rejected via dashboard");
+      if (action === "START") res = await startDeliveryAction(id);
+      if (action === "COMPLETE") res = await completeDeliveryAction(id);
+      if (action === "CANCEL") res = await cancelDeliveryAction(id);
       
-      void utils.delivery.list.invalidate();
-      void utils.delivery.stats.invalidate();
-      void utils.company.dashboardSummary.invalidate();
+      if (res && !res.success) {
+        alert(res.error);
+      } else {
+        void utils.delivery.list.invalidate();
+        void utils.delivery.stats.invalidate();
+        void utils.company.dashboardSummary.invalidate();
+        void utils.inventory.overview.invalidate();
+        void utils.item.list.invalidate();
+        void utils.zone.list.invalidate();
+        void utils.zone.floorPlan.invalidate();
+      }
+    } catch (err: any) {
+      console.error(err);
+      alert("An unexpected error occurred.");
     } finally {
       setLoadingId(null);
     }
   }
 
   const isManager = ["ADMIN", "MANAGER"].includes(user.role);
+
+  function refresh() {
+    void utils.delivery.list.invalidate();
+    void utils.delivery.stats.invalidate();
+  }
 
   return (
     <div className="flex h-full flex-col">
@@ -87,10 +320,10 @@ export function DeliveriesClient({ user }: { user: { id: string; role: string } 
             </p>
           </div>
         </div>
-
+ 
         <button
           type="button"
-          onClick={() => alert("Create delivery modal coming soon...")}
+          onClick={() => setShowCreate(true)}
           className="flex items-center gap-1.5 rounded-md bg-logistics-amber px-3 py-1.5 text-[12px] font-medium tracking-tight text-black transition hover:brightness-110"
         >
           <Plus className="h-3.5 w-3.5" />
@@ -262,6 +495,10 @@ export function DeliveriesClient({ user }: { user: { id: string; role: string } 
           </div>
         )}
       </div>
+
+      {showCreate && (
+        <CreateDeliveryModal onClose={() => setShowCreate(false)} onSuccess={refresh} />
+      )}
     </div>
   );
 }

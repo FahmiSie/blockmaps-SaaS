@@ -61,15 +61,12 @@ const enforceAuth = t.middleware(({ ctx, next }) => {
 });
 
 /** Ensure user belongs to a company */
-const enforceCompany = t.middleware(async ({ ctx, next }) => {
+const enforceCompany = t.middleware(({ ctx, next }) => {
   if (!ctx.session?.user) {
     throw new TRPCError({ code: "UNAUTHORIZED" });
   }
-  const user = await ctx.prisma.user.findUnique({
-    where: { id: ctx.session.user.id },
-    select: { companyId: true, role: true },
-  });
-  if (!user?.companyId) {
+  const { companyId, role } = ctx.session.user;
+  if (!companyId) {
     throw new TRPCError({
       code: "FORBIDDEN",
       message: "User is not associated with any company.",
@@ -77,27 +74,24 @@ const enforceCompany = t.middleware(async ({ ctx, next }) => {
   }
   return next({
     ctx: {
-      prisma: ctx.prisma,  // ← tambah ini
+      prisma: ctx.prisma,
       session: { ...ctx.session, user: ctx.session.user },
-      companyId: user.companyId,
-      role: user.role,
+      companyId,
+      role: role as Role,
     },
   });
 });
 
 const enforceRole = (allowedRoles: Role[]) =>
-  t.middleware(async ({ ctx, next }) => {
+  t.middleware(({ ctx, next }) => {
     if (!ctx.session?.user) {
       throw new TRPCError({ code: "UNAUTHORIZED" });
     }
-    const user = await ctx.prisma.user.findUnique({
-      where: { id: ctx.session.user.id },
-      select: { companyId: true, role: true },
-    });
-    if (!user?.companyId) {
+    const { companyId, role } = ctx.session.user;
+    if (!companyId) {
       throw new TRPCError({ code: "FORBIDDEN", message: "No company assigned." });
     }
-    if (!allowedRoles.includes(user.role)) {
+    if (!role || !allowedRoles.includes(role as Role)) {
       throw new TRPCError({
         code: "FORBIDDEN",
         message: `Access denied. Required roles: ${allowedRoles.join(", ")}.`,
@@ -105,10 +99,10 @@ const enforceRole = (allowedRoles: Role[]) =>
     }
     return next({
       ctx: {
-        prisma: ctx.prisma,  // ← tambah ini
+        prisma: ctx.prisma,
         session: { ...ctx.session, user: ctx.session.user },
-        companyId: user.companyId,
-        role: user.role,
+        companyId,
+        role: role as Role,
       },
     });
   });
