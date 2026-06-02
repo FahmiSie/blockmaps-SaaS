@@ -16,7 +16,10 @@ services:
         MIDTRANS_CLIENT_KEY: ${MIDTRANS_CLIENT_KEY}
         MIDTRANS_ENV: ${MIDTRANS_ENV}
         NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME: ${NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME}
-    image: !reset null
+    depends_on: !reset {}
+    environment:
+      DATABASE_URL: ${DATABASE_URL}
+      DIRECT_URL: ${DIRECT_URL}
     deploy:
       resources:
         limits:
