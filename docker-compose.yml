@@ -9,6 +9,7 @@
 services:
   # ── PostgreSQL ──────────────────────────────────────────────
   db:
+    profiles: ["local"]
     image: postgres:15-alpine
     container_name: blockmaps_db
     restart: unless-stopped
