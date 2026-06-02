@@ -80,10 +80,12 @@ export const zoneRouter = createTRPCRouter({
   // ── CREATE ZONE ───────────────────────────────────────────
   create: adminProcedure
     .input(
-      z.object({
-        name: z.string().min(1).max(100),
-        type: ZoneTypeEnum,
-      }).merge(ZonePositionSchema),
+      z
+        .object({
+          name: z.string().min(1).max(100),
+          type: ZoneTypeEnum,
+        })
+        .merge(ZonePositionSchema),
     )
     .mutation(async ({ ctx, input }) => {
       return ctx.prisma.zone.create({
@@ -94,12 +96,14 @@ export const zoneRouter = createTRPCRouter({
   // ── UPDATE ZONE ───────────────────────────────────────────
   update: adminProcedure
     .input(
-      z.object({
-        id: z.string().cuid(),
-        name: z.string().min(1).max(100).optional(),
-        type: ZoneTypeEnum.optional(),
-        isActive: z.boolean().optional(),
-      }).merge(ZonePositionSchema.partial()),
+      z
+        .object({
+          id: z.string().cuid(),
+          name: z.string().min(1).max(100).optional(),
+          type: ZoneTypeEnum.optional(),
+          isActive: z.boolean().optional(),
+        })
+        .merge(ZonePositionSchema.partial()),
     )
     .mutation(async ({ ctx, input }) => {
       const { id, ...data } = input;
@@ -124,7 +128,6 @@ export const zoneRouter = createTRPCRouter({
       ),
     )
     .mutation(async ({ ctx, input }) => {
-      // Verify all zones belong to this company
       const ids = input.map((z) => z.id);
       const owned = await ctx.prisma.zone.findMany({
         where: { id: { in: ids }, companyId: ctx.companyId },
@@ -137,11 +140,9 @@ export const zoneRouter = createTRPCRouter({
         });
       }
 
-      await ctx.prisma.$transaction(
-        input.map(({ id, ...pos }) =>
-          ctx.prisma.zone.update({ where: { id }, data: pos }),
-        ),
-      );
+      for (const { id, ...pos } of input) {
+        await ctx.prisma.zone.update({ where: { id }, data: pos });
+      }
 
       return { updated: input.length };
     }),

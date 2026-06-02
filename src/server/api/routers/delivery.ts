@@ -42,7 +42,16 @@ export const deliveryRouter = createTRPCRouter({
       }),
     )
     .query(async ({ ctx, input }) => {
-      const { page, limit, status, fromZoneId, toZoneId, requestedById, dateFrom, dateTo } = input;
+      const {
+        page,
+        limit,
+        status,
+        fromZoneId,
+        toZoneId,
+        requestedById,
+        dateFrom,
+        dateTo,
+      } = input;
       const skip = (page - 1) * limit;
 
       const where = {
@@ -50,8 +59,8 @@ export const deliveryRouter = createTRPCRouter({
         ...(status && { status }),
         ...(fromZoneId && { fromZoneId }),
         ...(toZoneId && { toZoneId }),
-        ...(requestedById&& { requestedById}),
-        ...(dateFrom ?? dateTo
+        ...(requestedById && { requestedById }),
+        ...((dateFrom ?? dateTo)
           ? {
               createdAt: {
                 ...(dateFrom && { gte: dateFrom }),
@@ -72,7 +81,13 @@ export const deliveryRouter = createTRPCRouter({
         ctx.prisma.deliveryRequest.count({ where }),
       ]);
 
-      return { requests, total, page, limit, totalPages: Math.ceil(total / limit) };
+      return {
+        requests,
+        total,
+        page,
+        limit,
+        totalPages: Math.ceil(total / limit),
+      };
     }),
 
   getById: companyProcedure
@@ -93,7 +108,12 @@ export const deliveryRouter = createTRPCRouter({
         toZoneId: z.string().cuid(),
         notes: z.string().max(500).optional(),
         items: z
-          .array(z.object({ itemId: z.string().cuid(), quantity: z.number().positive() }))
+          .array(
+            z.object({
+              itemId: z.string().cuid(),
+              quantity: z.number().positive(),
+            }),
+          )
           .min(1, "At least one item required"),
       }),
     )
@@ -107,14 +127,30 @@ export const deliveryRouter = createTRPCRouter({
 
       const [fromZone, toZone] = await Promise.all([
         ctx.prisma.zone.findFirst({
-          where: { id: input.fromZoneId, companyId: ctx.companyId, isActive: true },
+          where: {
+            id: input.fromZoneId,
+            companyId: ctx.companyId,
+            isActive: true,
+          },
         }),
         ctx.prisma.zone.findFirst({
-          where: { id: input.toZoneId, companyId: ctx.companyId, isActive: true },
+          where: {
+            id: input.toZoneId,
+            companyId: ctx.companyId,
+            isActive: true,
+          },
         }),
       ]);
-      if (!fromZone) throw new TRPCError({ code: "NOT_FOUND", message: "Source zone not found or inactive." });
-      if (!toZone) throw new TRPCError({ code: "NOT_FOUND", message: "Destination zone not found or inactive." });
+      if (!fromZone)
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "Source zone not found or inactive.",
+        });
+      if (!toZone)
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "Destination zone not found or inactive.",
+        });
 
       const itemIds = input.items.map((i) => i.itemId);
       const ownedItems = await ctx.prisma.item.findMany({
@@ -131,7 +167,9 @@ export const deliveryRouter = createTRPCRouter({
       const inventoryChecks = await ctx.prisma.inventory.findMany({
         where: { zoneId: input.fromZoneId, itemId: { in: itemIds } },
       });
-      const inventoryMap = new Map(inventoryChecks.map((inv) => [inv.itemId, inv.quantity]));
+      const inventoryMap = new Map(
+        inventoryChecks.map((inv) => [inv.itemId, inv.quantity]),
+      );
 
       for (const reqItem of input.items) {
         const available = inventoryMap.get(reqItem.itemId) ?? 0;
@@ -155,7 +193,10 @@ export const deliveryRouter = createTRPCRouter({
           toZoneId: input.toZoneId,
           notes: input.notes,
           items: {
-            create: input.items.map(({ itemId, quantity }) => ({ itemId, quantity })),
+            create: input.items.map(({ itemId, quantity }) => ({
+              itemId,
+              quantity,
+            })),
           },
         },
         include: deliveryInclude,
@@ -184,7 +225,12 @@ export const deliveryRouter = createTRPCRouter({
     }),
 
   reject: managerProcedure
-    .input(z.object({ id: z.string().cuid(), notes: z.string().max(500).optional() }))
+    .input(
+      z.object({
+        id: z.string().cuid(),
+        notes: z.string().max(500).optional(),
+      }),
+    )
     .mutation(async ({ ctx, input }) => {
       const req = await ctx.prisma.deliveryRequest.findFirst({
         where: { id: input.id, companyId: ctx.companyId },
@@ -245,26 +291,42 @@ export const deliveryRouter = createTRPCRouter({
         });
       }
 
-      await ctx.prisma.$transaction(async (tx) => {
-        await tx.deliveryRequest.update({
-          where: { id: input.id },
-          data: { status: "COMPLETED" },
+      await ctx.prisma.deliveryRequest.update({
+        where: { id: input.id },
+        data: { status: "COMPLETED" },
+      });
+
+      for (const deliveryItem of req.items) {
+        await ctx.prisma.inventory.upsert({
+          where: {
+            zoneId_itemId: {
+              zoneId: req.fromZoneId,
+              itemId: deliveryItem.itemId,
+            },
+          },
+          update: { quantity: { decrement: deliveryItem.quantity } },
+          create: {
+            zoneId: req.fromZoneId,
+            itemId: deliveryItem.itemId,
+            quantity: -deliveryItem.quantity,
+          },
         });
 
-        for (const deliveryItem of req.items) {
-          await tx.inventory.upsert({
-            where: { zoneId_itemId: { zoneId: req.fromZoneId, itemId: deliveryItem.itemId } },
-            update: { quantity: { decrement: deliveryItem.quantity } },
-            create: { zoneId: req.fromZoneId, itemId: deliveryItem.itemId, quantity: -deliveryItem.quantity },
-          });
-
-          await tx.inventory.upsert({
-            where: { zoneId_itemId: { zoneId: req.toZoneId, itemId: deliveryItem.itemId } },
-            update: { quantity: { increment: deliveryItem.quantity } },
-            create: { zoneId: req.toZoneId, itemId: deliveryItem.itemId, quantity: deliveryItem.quantity },
-          });
-        }
-      });
+        await ctx.prisma.inventory.upsert({
+          where: {
+            zoneId_itemId: {
+              zoneId: req.toZoneId,
+              itemId: deliveryItem.itemId,
+            },
+          },
+          update: { quantity: { increment: deliveryItem.quantity } },
+          create: {
+            zoneId: req.toZoneId,
+            itemId: deliveryItem.itemId,
+            quantity: deliveryItem.quantity,
+          },
+        });
+      }
 
       return ctx.prisma.deliveryRequest.findUnique({
         where: { id: input.id },
@@ -280,14 +342,20 @@ export const deliveryRouter = createTRPCRouter({
       });
       if (!req) throw new TRPCError({ code: "NOT_FOUND" });
 
-      const isOwner = req.requestedById=== ctx.session.user.id;
+      const isOwner = req.requestedById === ctx.session.user.id;
       const isManager = ["ADMIN", "MANAGER"].includes(ctx.role);
 
       if (!isOwner && !isManager) {
-        throw new TRPCError({ code: "FORBIDDEN", message: "You can only cancel your own requests." });
+        throw new TRPCError({
+          code: "FORBIDDEN",
+          message: "You can only cancel your own requests.",
+        });
       }
       if (req.status !== "PENDING") {
-        throw new TRPCError({ code: "BAD_REQUEST", message: "Only pending requests can be cancelled." });
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "Only pending requests can be cancelled.",
+        });
       }
 
       return ctx.prisma.deliveryRequest.update({
