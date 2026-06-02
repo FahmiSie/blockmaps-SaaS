@@ -3,7 +3,6 @@
 import Script from "next/script";
 import { api } from "@/trpc/react";
 import { toast } from "sonner";
-import { env } from "@/env";
 import { History, AlertCircle, CheckCircle, Clock, Loader2 } from "lucide-react";
 
 

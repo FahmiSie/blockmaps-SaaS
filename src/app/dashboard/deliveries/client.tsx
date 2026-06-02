@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useDebounce } from "@/hooks/use-debounce";
 import { api } from "@/trpc/react";
 import {
   Truck,
@@ -12,7 +13,11 @@ import {
   Settings2,
   Package,
   Play,
+  Search,
+  ChevronLeft,
+  ChevronRight,
 } from "lucide-react";
+import { EmptyState } from "@/components/blockmaps/EmptyState";
 import {
   approveDeliveryAction,
   rejectDeliveryAction,
@@ -44,8 +49,6 @@ function StatusBadge({ status }: { status: string }) {
 
 // ─── Create Delivery Modal ───────────────────────────────────────
 import { useForm } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
-import * as z from "zod";
 
 function CreateDeliveryModal({
   onClose,
@@ -238,14 +241,14 @@ function CreateDeliveryModal({
             <button
               type="button"
               onClick={onClose}
-              className="flex-1 rounded-md border border-border py-2 text-xs font-medium text-muted-foreground transition hover:bg-accent"
+              className="flex-1 rounded-md bg-zinc-800 py-2 text-[12px] font-medium text-white transition hover:bg-zinc-700"
             >
               Cancel
             </button>
             <button
               type="submit"
               disabled={!isValid}
-              className="flex-1 rounded-md bg-logistics-amber py-2 text-xs font-medium tracking-tight text-black transition hover:brightness-110 disabled:opacity-50 disabled:cursor-not-allowed"
+              className="flex-1 rounded-md bg-amber-500 py-2 text-[12px] font-medium tracking-tight text-white transition hover:bg-amber-600 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {loading ? "Submitting…" : "Submit Request"}
             </button>
@@ -260,14 +263,22 @@ function CreateDeliveryModal({
 export function DeliveriesClient({ user }: { user: { id: string; role: string } }) {
   const utils = api.useUtils();
   const [statusFilter, setStatusFilter] = useState<DeliveryStatus | "ALL">("ALL");
-  const [loadingId, setLoadingId] = useState<string | null>(null);
   const [showCreate, setShowCreate] = useState(false);
+  const [loadingId, setLoadingId] = useState<string | null>(null);
 
-  const { data, isLoading } = api.delivery.list.useQuery({
-    page: 1,
-    limit: 50,
-    status: statusFilter === "ALL" ? undefined : statusFilter,
-  });
+  const [deliverySearch, setDeliverySearch] = useState("");
+  const [deliveryPage, setDeliveryPage] = useState(1);
+  const debouncedDeliverySearch = useDebounce(deliverySearch.trim(), 500);
+
+  const { data, isLoading } = api.delivery.list.useQuery(
+    {
+      status: statusFilter === "ALL" ? undefined : statusFilter,
+      page: deliveryPage,
+      limit: 10,
+      search: debouncedDeliverySearch || undefined
+    },
+    { placeholderData: (prev) => prev }
+  );
 
   const { data: stats } = api.delivery.stats.useQuery();
 
@@ -302,6 +313,9 @@ export function DeliveriesClient({ user }: { user: { id: string; role: string } 
 
   const isManager = ["ADMIN", "MANAGER"].includes(user.role);
 
+  const totalPages = data?.totalPages || 0;
+  const paginatedDeliveries = data?.requests || [];
+
   function refresh() {
     void utils.delivery.list.invalidate();
     void utils.delivery.stats.invalidate();
@@ -314,9 +328,9 @@ export function DeliveriesClient({ user }: { user: { id: string; role: string } 
         <div className="flex items-center gap-3">
           <Truck className="h-4 w-4 text-logistics-amber" />
           <div>
-            <h1 className="text-[14px] font-medium tracking-tight text-foreground">Delivery Operations</h1>
+            <h1 className="text-[14px] font-medium tracking-tight text-foreground">Stock Transfers</h1>
             <p className="text-[12px] tracking-tight text-muted-foreground/80">
-              Internal routing & transfer management
+              Internal stock movement operations
             </p>
           </div>
         </div>
@@ -324,10 +338,10 @@ export function DeliveriesClient({ user }: { user: { id: string; role: string } 
         <button
           type="button"
           onClick={() => setShowCreate(true)}
-          className="flex items-center gap-1.5 rounded-md bg-logistics-amber px-3 py-1.5 text-[12px] font-medium tracking-tight text-black transition hover:brightness-110"
+          className="flex items-center gap-1.5 rounded border border-[var(--border-base)] bg-zinc-950 px-3 py-1.5 text-[12px] font-medium tracking-tight text-foreground transition hover:bg-accent"
         >
-          <Plus className="h-3.5 w-3.5" />
-          New Request
+          <Plus className="h-3.5 w-3.5 text-logistics-cyan" />
+          New Transfer
         </button>
       </div>
 
@@ -363,13 +377,37 @@ export function DeliveriesClient({ user }: { user: { id: string; role: string } 
             </div>
           </div>
         ) : !data?.requests.length ? (
-          <div className="flex h-64 flex-col items-center justify-center gap-3 rounded-lg border border-dashed border-border">
-            <Truck className="h-8 w-8 text-muted-foreground/30" />
-            <p className="text-xs text-muted-foreground">No delivery requests found.</p>
-          </div>
+          <EmptyState 
+            icon={Truck}
+            title="No Transfers Yet"
+            description="Move inventory between storage areas to start tracking operations."
+            action={
+              <button
+                onClick={() => setShowCreate(true)}
+                className="flex items-center gap-1.5 rounded border border-[var(--border-base)] bg-zinc-950 px-4 py-2 text-[13px] font-medium tracking-tight text-foreground transition hover:bg-accent"
+              >
+                <Plus className="h-4 w-4 text-logistics-cyan" />
+                Create Transfer
+              </button>
+            }
+          />
         ) : (
-          <div className="space-y-3">
-            {data.requests.map((req) => (
+          <div className="space-y-4">
+            <div className="flex items-center gap-2 mb-4">
+              <div className="relative flex-1 max-w-sm">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <input
+                  type="text"
+                  placeholder="Search transfers..."
+                  value={deliverySearch}
+                  onChange={(e) => { setDeliverySearch(e.target.value); setDeliveryPage(1); }}
+                  className="w-full rounded-md bg-background border border-border pl-9 pr-4 py-2 text-[13px] text-foreground focus:outline-none focus:border-logistics-cyan transition"
+                />
+              </div>
+            </div>
+
+            <div className="space-y-3">
+              {paginatedDeliveries.map((req) => (
               <div
                 key={req.id}
                 className="flex flex-col rounded-lg border border-border bg-card p-4 transition-colors hover:border-border/80"
@@ -445,14 +483,14 @@ export function DeliveriesClient({ user }: { user: { id: string; role: string } 
                         <button
                           onClick={() => handleAction(req.id, "REJECT")}
                           disabled={loadingId === req.id}
-                          className="rounded-sm border border-logistics-red/30 px-3 py-1.5 text-[11px] font-medium tracking-tight text-logistics-red transition hover:bg-logistics-red/10"
+                          className="rounded-sm bg-red-500 px-3 py-1.5 text-[11px] font-medium tracking-tight text-white transition hover:bg-red-600"
                         >
                           Reject
                         </button>
                         <button
                           onClick={() => handleAction(req.id, "APPROVE")}
                           disabled={loadingId === req.id}
-                          className="rounded-sm border border-logistics-cyan/30 px-3 py-1.5 text-[11px] font-medium tracking-tight text-logistics-cyan transition hover:bg-logistics-cyan/10"
+                          className="rounded-sm bg-green-500 px-3 py-1.5 text-[11px] font-medium tracking-tight text-white transition hover:bg-green-600"
                         >
                           Approve
                         </button>
@@ -463,7 +501,7 @@ export function DeliveriesClient({ user }: { user: { id: string; role: string } 
                       <button
                         onClick={() => handleAction(req.id, "CANCEL")}
                         disabled={loadingId === req.id}
-                        className="rounded-sm border border-destructive/30 px-3 py-1.5 text-[11px] font-medium tracking-tight text-destructive transition hover:bg-destructive/10"
+                        className="rounded-sm bg-zinc-800 px-3 py-1.5 text-[11px] font-medium tracking-tight text-white transition hover:bg-zinc-700"
                       >
                         Cancel Request
                       </button>
@@ -473,7 +511,7 @@ export function DeliveriesClient({ user }: { user: { id: string; role: string } 
                       <button
                         onClick={() => handleAction(req.id, "START")}
                         disabled={loadingId === req.id}
-                        className="flex items-center gap-1.5 rounded-sm bg-logistics-cyan/20 px-3 py-1.5 text-[11px] font-medium tracking-tight text-logistics-cyan transition hover:bg-logistics-cyan/30"
+                        className="flex items-center gap-1.5 rounded-sm bg-amber-500 px-3 py-1.5 text-[11px] font-medium tracking-tight text-white transition hover:bg-amber-600"
                       >
                         <Play className="h-3 w-3" /> Start Delivery
                       </button>
@@ -483,7 +521,7 @@ export function DeliveriesClient({ user }: { user: { id: string; role: string } 
                       <button
                         onClick={() => handleAction(req.id, "COMPLETE")}
                         disabled={loadingId === req.id}
-                        className="flex items-center gap-1.5 rounded-sm bg-logistics-green/20 px-3 py-1.5 text-[11px] font-medium tracking-tight text-logistics-green transition hover:bg-logistics-green/30"
+                        className="flex items-center gap-1.5 rounded-sm bg-green-500 px-3 py-1.5 text-[11px] font-medium tracking-tight text-white transition hover:bg-green-600"
                       >
                         <CheckCircle2 className="h-3.5 w-3.5" /> Complete
                       </button>
@@ -492,6 +530,31 @@ export function DeliveriesClient({ user }: { user: { id: string; role: string } 
                 </div>
               </div>
             ))}
+            </div>
+
+            {totalPages > 0 && (
+              <div className="flex items-center justify-between border-t border-border pt-4 mt-6">
+                <p className="text-[12px] text-muted-foreground">
+                  Showing {(deliveryPage - 1) * 10 + (data?.requests?.length ? 1 : 0)}-{Math.min(deliveryPage * 10, data?.total || 0)} of {data?.total || 0} transfers
+                </p>
+                <div className="flex items-center gap-2">
+                  <button
+                    disabled={deliveryPage === 1}
+                    onClick={() => setDeliveryPage(p => p - 1)}
+                    className="p-1 rounded bg-accent/50 text-foreground disabled:opacity-50 transition hover:bg-accent"
+                  >
+                    <ChevronLeft className="h-4 w-4" />
+                  </button>
+                  <button
+                    disabled={deliveryPage === totalPages || totalPages === 0}
+                    onClick={() => setDeliveryPage(p => p + 1)}
+                    className="p-1 rounded bg-accent/50 text-foreground disabled:opacity-50 transition hover:bg-accent"
+                  >
+                    <ChevronRight className="h-4 w-4" />
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         )}
       </div>

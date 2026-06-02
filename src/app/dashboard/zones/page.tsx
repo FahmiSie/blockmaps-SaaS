@@ -1,5 +1,13 @@
 import { ZonesClient } from "./client";
+import { api, HydrateClient } from "@/trpc/server";
 
-export default function ZonesPage() {
-  return <ZonesClient />;
+export default async function ZonesPage() {
+  await api.zone.list.prefetch({ includeInactive: false });
+  await api.zone.stats.prefetch();
+
+  return (
+    <HydrateClient>
+      <ZonesClient />
+    </HydrateClient>
+  );
 }

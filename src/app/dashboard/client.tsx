@@ -98,7 +98,6 @@ function PipelineStep({
 }
 
 // ─── Main Dashboard Component ────────────────────────────────
-
 export function DashboardClient({ user }: DashboardClientProps) {
   const { data: summary, isLoading: summaryLoading } =
     api.company.dashboardSummary.useQuery();

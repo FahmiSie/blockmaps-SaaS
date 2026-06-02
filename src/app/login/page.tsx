@@ -2,15 +2,24 @@
 
 import Link from "next/link";
 import { signIn } from "next-auth/react";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { ArrowRight, Loader2, ArrowLeft, Eye, EyeOff } from "lucide-react";
 
 export default function LoginPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
+  const [rememberMe, setRememberMe] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+
+  useEffect(() => {
+    const savedEmail = localStorage.getItem("blockmaps_remember_email");
+    if (savedEmail) {
+      setEmail(savedEmail);
+      setRememberMe(true);
+    }
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -18,6 +27,12 @@ export default function LoginPage() {
     setError("");
 
     try {
+      if (rememberMe) {
+        localStorage.setItem("blockmaps_remember_email", email);
+      } else {
+        localStorage.removeItem("blockmaps_remember_email");
+      }
+
       const res = await signIn("credentials", {
         email,
         password,
@@ -129,6 +144,19 @@ export default function LoginPage() {
                 </div>
               </div>
 
+              <div className="flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  id="remember"
+                  checked={rememberMe}
+                  onChange={(e) => setRememberMe(e.target.checked)}
+                  className="h-3.5 w-3.5 rounded-sm border-border bg-background text-foreground focus:ring-1 focus:ring-foreground/30 accent-foreground"
+                />
+                <label htmlFor="remember" className="text-[12px] text-muted-foreground select-none">
+                  Remember me
+                </label>
+              </div>
+
               <button
                 type="submit"
                 disabled={loading}
@@ -179,6 +207,13 @@ export default function LoginPage() {
               </svg>
               Sign in with Google
             </button>
+
+            <p className="mt-6 text-center text-[10px] text-muted-foreground/60 leading-relaxed">
+              By continuing, I agree to BlockMaps <br/>
+              <Link href="/terms" className="underline hover:text-foreground">Terms</Link>,{" "}
+              <Link href="/privacy" className="underline hover:text-foreground">Privacy Policy</Link>, and{" "}
+              <Link href="/cookies" className="underline hover:text-foreground">Cookie Policy</Link>.
+            </p>
           </div>
 
           <p className="mt-8 text-center font-mono text-[10px] uppercase tracking-widest text-muted-foreground/60">

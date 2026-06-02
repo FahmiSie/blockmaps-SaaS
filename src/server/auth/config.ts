@@ -151,8 +151,8 @@ export const authConfig: AuthOptions = {
   },
 
   pages: {
-    signIn: "/signin",
-    error: "/signin",
+    signIn: "/login",
+    error: "/login",
   },
 
   secret: env.AUTH_SECRET,

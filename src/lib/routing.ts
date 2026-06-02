@@ -22,7 +22,7 @@ const FORKLIFT_SPEED = 4.0; // m/s
  * Builds a graph from a list of zones.
  * Connects each zone to its nearest `k` neighbors based on Euclidean distance.
  */
-export function buildGraph(nodes: Node[], k: number = 3): Graph {
+export function buildGraph(nodes: Node[], k = 3): Graph {
   const graph: Graph = {};
 
   nodes.forEach((node) => {
@@ -41,8 +41,8 @@ export function buildGraph(nodes: Node[], k: number = 3): Graph {
     const nearest = distances.slice(0, k);
     nearest.forEach(({ target, dist }) => {
       // Add edge from node -> target
-      if (!graph[node.id].some(e => e.target === target)) {
-        graph[node.id].push({ target, weight: dist });
+      if (!graph[node.id]?.some(e => e.target === target)) {
+        graph[node.id]?.push({ target, weight: dist });
       }
       
       // Add edge from target -> node (make it undirected)
@@ -79,8 +79,8 @@ export function findShortestPath(graph: Graph, startId: string, endId: string): 
     let minDistance = Infinity;
 
     for (const node of unvisited) {
-      if (distances[node] < minDistance) {
-        minDistance = distances[node];
+      if ((distances[node] ?? 0) < minDistance) {
+        minDistance = distances[node] ?? 0;
         current = node;
       }
     }
@@ -96,8 +96,8 @@ export function findShortestPath(graph: Graph, startId: string, endId: string): 
     for (const neighbor of neighbors) {
       if (!unvisited.has(neighbor.target)) continue;
 
-      const alt = distances[current] + neighbor.weight;
-      if (alt < distances[neighbor.target]) {
+      const alt = (distances[current]?? 0) + neighbor.weight;
+      if (alt < (distances[neighbor.target] ?? 0)) {
         distances[neighbor.target] = alt;
         previous[neighbor.target] = current;
       }
@@ -111,10 +111,10 @@ export function findShortestPath(graph: Graph, startId: string, endId: string): 
   let curr: string | null = endId;
   while (curr !== null) {
     path.unshift(curr);
-    curr = previous[curr];
+    curr = previous[curr] ?? null;
   }
 
-  const totalDistancePixels = distances[endId];
+  const totalDistancePixels = distances[endId] ?? 0;
   const totalDistanceMeters = totalDistancePixels * PIXELS_TO_METERS;
 
   return {

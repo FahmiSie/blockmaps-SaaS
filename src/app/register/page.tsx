@@ -1,8 +1,9 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useState } from "react";
-import { ArrowRight, Loader2, ArrowLeft, CheckCircle2, Eye, EyeOff } from "lucide-react";
+import { ArrowRight, Loader2, ArrowLeft, Eye, EyeOff } from "lucide-react";
 import { registerAction } from "@/server/actions/users.action";
 
 export default function RegisterPage() {
@@ -12,13 +13,12 @@ export default function RegisterPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
-  const [success, setSuccess] = useState(false);
+  const router = useRouter();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     setError("");
-    setSuccess(false);
 
     try {
       const res = await registerAction({
@@ -28,7 +28,7 @@ export default function RegisterPage() {
       });
 
       if (res.success) {
-        setSuccess(true);
+        router.push("/verify-email-sent?email=" + encodeURIComponent(email));
       } else {
         setError(res.error || "Failed to create account.");
         setLoading(false);
@@ -64,32 +64,8 @@ export default function RegisterPage() {
         {/* Auth Container */}
         <div className="mx-auto w-full max-w-[360px]">
           
-          {success ? (
-            <div className="mb-10 text-center">
-              <div className="mx-auto mb-6 flex h-16 w-16 items-center justify-center rounded-full bg-logistics-green/10 text-logistics-green">
-                <CheckCircle2 className="h-8 w-8" />
-              </div>
-              <h2 className="text-[24px] font-medium tracking-tight text-foreground">
-                Account Created
-              </h2>
-              <p className="mt-3 text-[14px] leading-relaxed text-muted-foreground">
-                Your account has been created successfully. <br/>
-                You can now sign in using your credentials.
-              </p>
-              
-              <div className="mt-8 space-y-3">
-                <Link
-                  href="/login"
-                  className="flex w-full items-center justify-center gap-2 rounded-sm bg-foreground px-4 py-2.5 text-[13px] font-medium text-background transition-all hover:bg-foreground/90"
-                >
-                  Proceed to Sign In
-                </Link>
-              </div>
-            </div>
-          ) : (
-            <>
-              {/* Logo & Header */}
-              <div className="mb-10 text-center">
+          {/* Logo & Header */}
+          <div className="mb-10 text-center">
                 <div className="mx-auto mb-6 flex h-10 w-10 items-center justify-center rounded-sm border border-border/80 bg-card shadow-sm">
                   <svg width="20" height="20" viewBox="0 0 14 14" fill="none">
                     <rect x="0.5" y="0.5" width="5.5" height="5.5" stroke="var(--logistics-cyan)" strokeWidth="1" fill="none" />
@@ -186,17 +162,21 @@ export default function RegisterPage() {
                   </button>
                 </form>
               </div>
-            </>
-          )}
 
-          {!success && (
-            <p className="mt-8 text-center font-mono text-[10px] uppercase tracking-widest text-muted-foreground/60">
-              Already have an account?{" "}
-              <Link href="/login" className="text-foreground transition-colors hover:underline">
-               Sign In
-              </Link>
+            <p className="mt-6 text-center text-[10px] text-muted-foreground/60 leading-relaxed">
+              By continuing, I agree to BlockMaps <br/>
+              <Link href="/terms" className="underline hover:text-foreground">Terms</Link>,{" "}
+              <Link href="/privacy" className="underline hover:text-foreground">Privacy Policy</Link>, and{" "}
+              <Link href="/cookies" className="underline hover:text-foreground">Cookie Policy</Link>.
             </p>
-          )}
+
+
+          <p className="mt-8 text-center font-mono text-[10px] uppercase tracking-widest text-muted-foreground/60">
+            Already have an account?{" "}
+            <Link href="/login" className="text-foreground transition-colors hover:underline">
+             Sign In
+            </Link>
+          </p>
         </div>
       </div>
     </div>

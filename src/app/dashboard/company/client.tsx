@@ -190,11 +190,7 @@ function DangerModal({
         <div className="flex gap-3">
           <button
             onClick={onClose}
-            className="hover:bg-accent/50 flex flex-1 items-center justify-center rounded-sm border py-2.5 text-[13px] transition-colors"
-            style={{
-              borderColor: "var(--border-base)",
-              color: "var(--text-secondary)",
-            }}
+            className="flex flex-1 items-center justify-center rounded-sm bg-zinc-800 py-2.5 text-[13px] font-medium text-white transition-colors hover:bg-zinc-700"
           >
             Cancel
           </button>
@@ -360,8 +356,7 @@ function NoCompanyState() {
         <div className="flex flex-col items-center gap-3">
           <button
             onClick={() => (window.location.href = "/onboarding")}
-            className="flex items-center gap-2 rounded-sm px-5 py-2.5 text-[13px] font-medium transition-all hover:opacity-90"
-            style={{ background: "var(--foreground)", color: "var(--bg-base)" }}
+            className="flex items-center gap-2 rounded-sm bg-amber-500 px-5 py-2.5 text-[13px] font-medium text-white transition-all hover:bg-amber-600"
           >
             <Plus className="h-3.5 w-3.5" />
             Create New Company
@@ -574,11 +569,7 @@ export function CompanyClient({ currentUser }: { currentUser: CurrentUser }) {
                 <button
                   onClick={() => logoInputRef.current?.click()}
                   disabled={isLogoUploading || !isAdmin}
-                  className="hover:bg-accent/50 flex items-center justify-center gap-2 rounded-sm border px-3 py-1.5 text-[12px] font-medium transition-colors disabled:opacity-50"
-                  style={{
-                    borderColor: "var(--border-base)",
-                    color: "var(--text-primary)",
-                  }}
+                  className="flex items-center justify-center gap-2 rounded-sm bg-zinc-800 px-3 py-1.5 text-[12px] font-medium text-white transition-colors hover:bg-zinc-700 disabled:opacity-50"
                 >
                   {isLogoUploading && (
                     <Loader2 className="h-3.5 w-3.5 animate-spin" />
@@ -640,11 +631,7 @@ export function CompanyClient({ currentUser }: { currentUser: CurrentUser }) {
               <button
                 onClick={handleSave}
                 disabled={updateCompany.isPending || !name.trim()}
-                className="flex items-center gap-2 rounded-sm px-4 py-2 text-[13px] font-medium transition-all disabled:opacity-50"
-                style={{
-                  background: "var(--foreground)",
-                  color: "var(--bg-base)",
-                }}
+                className="flex items-center gap-2 rounded-sm bg-amber-500 px-4 py-2 text-[13px] font-medium text-white transition-all hover:bg-amber-600 disabled:opacity-50"
               >
                 {updateCompany.isPending ? (
                   <Loader2 className="h-3.5 w-3.5 animate-spin" />
@@ -859,8 +846,7 @@ export function CompanyClient({ currentUser }: { currentUser: CurrentUser }) {
               </div>
               <button
                 onClick={() => setDangerModal("leave")}
-                className="flex flex-shrink-0 items-center gap-2 rounded-sm border px-4 py-2 text-[12px] font-medium transition-colors hover:bg-red-500/10"
-                style={{ borderColor: "rgba(239,68,68,0.3)", color: "#ef4444" }}
+                className="flex flex-shrink-0 items-center gap-2 rounded-sm bg-red-500 px-4 py-2 text-[12px] font-medium text-white transition-colors hover:bg-red-600"
               >
                 <LogOut className="h-3.5 w-3.5" />
                 Leave
@@ -890,11 +876,7 @@ export function CompanyClient({ currentUser }: { currentUser: CurrentUser }) {
                 </div>
                 <button
                   onClick={() => setDangerModal("transfer")}
-                  className="flex flex-shrink-0 items-center gap-2 rounded-sm border px-4 py-2 text-[12px] font-medium transition-colors hover:bg-red-500/10"
-                  style={{
-                    borderColor: "rgba(239,68,68,0.3)",
-                    color: "#ef4444",
-                  }}
+                  className="flex flex-shrink-0 items-center gap-2 rounded-sm bg-red-500 px-4 py-2 text-[12px] font-medium text-white transition-colors hover:bg-red-600"
                 >
                   <Shield className="h-3.5 w-3.5" />
                   Transfer
@@ -916,8 +898,7 @@ export function CompanyClient({ currentUser }: { currentUser: CurrentUser }) {
                 </div>
                 <button
                   onClick={() => setDangerModal("delete")}
-                  className="flex flex-shrink-0 items-center gap-2 rounded-sm px-4 py-2 text-[12px] font-medium transition-colors hover:opacity-90"
-                  style={{ background: "#ef4444", color: "#fff" }}
+                  className="flex flex-shrink-0 items-center gap-2 rounded-sm bg-red-500 px-4 py-2 text-[12px] font-medium text-white transition-colors hover:bg-red-600"
                 >
                   <Trash2 className="h-3.5 w-3.5" />
                   Archive Company

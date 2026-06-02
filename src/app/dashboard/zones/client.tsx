@@ -14,12 +14,13 @@ import {
   Save,
   Route,
   Navigation,
-  Clock,
   Footprints,
   Truck as Forklift,
+  X,
 } from "lucide-react";
 import { createZoneAction, deleteZoneAction, updateZoneAction } from "@/server/actions/zone.action";
-import { buildGraph, findShortestPath, RouteResult, Node } from "@/lib/routing";
+import { buildGraph, findShortestPath, type RouteResult, type Node } from "@/lib/routing";
+import { EmptyState } from "@/components/blockmaps/EmptyState";
 
 // ─── Zone type config ────────────────────────────────────────────
 const ZONE_TYPE_CONFIG = {
@@ -147,7 +148,7 @@ function ZoneBlock({
         height: renderH,
         cursor: "grab",
       }}
-      className={`absolute flex flex-col justify-between rounded border p-3 text-left transition-all duration-300 ${
+      className={`absolute flex flex-col justify-between overflow-hidden rounded border p-3 text-left transition-all duration-300 ${
         selected ? "z-20" : isRoutePath ? "z-20" : "z-10 hover:z-30"
       } ${
         hasCollision
@@ -176,13 +177,13 @@ function ZoneBlock({
       </div>
 
       {/* Zone name */}
-      <div className="my-1">
-        <p className="truncate text-[13px] font-medium tracking-tight text-foreground">{zone.name}</p>
+      <div className="my-1 flex-1 min-h-0 overflow-hidden flex flex-col">
+        <p className="truncate text-[13px] font-medium tracking-tight text-foreground shrink-0">{zone.name}</p>
         
         {/* Inventory Preview */}
-        <div className="mt-2 space-y-1">
+        <div className="mt-1 space-y-1 overflow-hidden">
           {(!zone.inventory || zone.inventory.length === 0) ? (
-            <p className="font-mono text-[9px] tracking-wider text-muted-foreground/60 uppercase">No stock assigned</p>
+            <p className="font-mono text-[9px] tracking-wider text-muted-foreground/60 uppercase truncate">No stock assigned</p>
           ) : (
             <>
               {zone.inventory.slice(0, 3).map((inv, i) => (
@@ -202,9 +203,9 @@ function ZoneBlock({
       </div>
 
       {/* Coordinates / Telemetry footer */}
-      <div className="flex items-center justify-between font-mono text-[9px] text-muted-foreground/45 tabular-nums border-t border-border/40 pt-1 mt-1">
-        <span>LOC: {renderX},{renderY}</span>
-        <span>DIM: {renderW}x{renderH}</span>
+      <div className="mt-auto pt-1 flex items-center justify-between gap-1 font-mono text-[9px] text-muted-foreground/45 tabular-nums border-t border-border/40 shrink-0 overflow-hidden">
+        <span className="truncate min-w-0">LOC: {renderX},{renderY}</span>
+        <span className="truncate min-w-0 text-right">DIM: {renderW}x{renderH}</span>
       </div>
 
       {/* Resize Handle */}
@@ -283,43 +284,43 @@ function CreateZoneModal({
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-sm">
       <div className="w-full max-w-sm rounded border border-border bg-card p-6 shadow-2xl">
         <div className="mb-5 flex items-center gap-2 border-b border-border/80 pb-3">
-          <Map className="h-4 w-4 text-logistics-cyan animate-pulse" />
-          <h2 className="font-mono text-[11px] uppercase tracking-widest text-foreground">PROVISION NEW ZONE</h2>
+          <Map className="h-4 w-4 text-amber-500" />
+          <h2 className="text-[14px] font-semibold tracking-tight text-foreground">Create Storage Area</h2>
         </div>
 
         <form onSubmit={handleSubmit} className="flex flex-col gap-4">
           {/* Name */}
-          <div className="space-y-2">
-            <label className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground/80">
-              Zone Identifier
+          <div className="space-y-1.5">
+            <label className="text-[12px] font-medium tracking-tight text-muted-foreground/80">
+              Area Name
             </label>
             <input
               value={name}
               onChange={(e) => setName(e.target.value)}
               placeholder="e.g. Alpha Sector, Finished Goods C"
-              className="w-full rounded-sm border border-border bg-background px-3 py-2 text-xs text-foreground placeholder:text-muted-foreground/30 focus:border-logistics-cyan focus:outline-none focus:ring-1 focus:ring-logistics-cyan/40"
+              className="w-full rounded-md border border-[var(--border-base)] bg-[var(--bg-elevated)] px-3 py-2 text-xs text-foreground placeholder:text-muted-foreground/30 focus:border-amber-500 focus:outline-none focus:ring-1 focus:ring-amber-500/40"
               autoFocus
             />
           </div>
 
           {/* Type */}
-          <div className="space-y-2">
-            <label className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground/80">
-              Operational Domain
+          <div className="space-y-1.5">
+            <label className="text-[12px] font-medium tracking-tight text-muted-foreground/80">
+              Area Type
             </label>
-            <div className="grid grid-cols-2 gap-1.5">
+            <div className="grid grid-cols-2 gap-2">
               {(Object.entries(ZONE_TYPE_CONFIG) as [ZoneType, typeof ZONE_TYPE_CONFIG[ZoneType]][]).map(([key, cfg]) => (
                 <button
                   key={key}
                   type="button"
                   onClick={() => setType(key)}
-                  className={`flex items-center gap-2 rounded-sm border px-3 py-2 text-[10px] font-mono uppercase tracking-wider transition ${
+                  className={`flex items-center gap-2 rounded-md border px-3 py-2.5 text-[12px] font-medium tracking-tight transition ${
                     type === key
-                      ? "border-logistics-cyan bg-logistics-cyan/10 text-logistics-cyan"
-                      : "border-border text-muted-foreground hover:bg-accent"
+                      ? "border-amber-500/50 bg-amber-500/10 text-amber-500"
+                      : "border-[var(--border-base)] text-muted-foreground hover:bg-accent"
                   }`}
                 >
-                  <span className={`h-1.5 w-1.5 rounded-full ${cfg.dot}`} />
+                  <span className={`h-2 w-2 rounded-full ${cfg.dot}`} />
                   {cfg.label}
                 </button>
               ))}
@@ -332,20 +333,20 @@ function CreateZoneModal({
             </p>
           )}
 
-          <div className="flex gap-2 pt-2">
+          <div className="flex gap-2 pt-3 border-t border-border mt-1">
             <button
               type="button"
               onClick={onClose}
-              className="flex-1 rounded-sm border border-border py-2 font-mono text-[10px] uppercase tracking-widest text-muted-foreground transition hover:bg-accent"
+              className="flex-1 rounded-md bg-zinc-800 py-2 text-[12px] font-medium text-white transition hover:bg-zinc-700"
             >
               Cancel
             </button>
             <button
               type="submit"
               disabled={loading || !name.trim()}
-              className="flex-1 rounded-sm bg-foreground py-2 font-mono text-[10px] uppercase tracking-widest text-background transition hover:bg-foreground/90 disabled:opacity-50"
+              className="flex-1 rounded-md bg-amber-500 py-2 text-[12px] font-medium tracking-tight text-white transition hover:bg-amber-600 disabled:opacity-50"
             >
-              {loading ? "PROVISIONING…" : "CREATE ZONE"}
+              {loading ? "Creating…" : "Create Area"}
             </button>
           </div>
         </form>
@@ -418,7 +419,7 @@ function ZoneDetailPanel({
   }
 
   return (
-    <div className="flex h-full w-[300px] shrink-0 flex-col border-l border-border bg-card/60 backdrop-blur-md">
+    <div className="absolute right-0 top-0 bottom-0 z-50 flex w-[300px] shrink-0 flex-col border-l border-border bg-card/85 backdrop-blur-xl shadow-2xl">
       {/* Header */}
       <div className="flex items-center justify-between border-b border-border px-4 py-3 bg-background/40">
         <span className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground">
@@ -531,14 +532,14 @@ function ZoneDetailPanel({
               </div>
             </div>
           ) : (
-            <div className="rounded-sm border border-border bg-background/40 p-3 font-mono text-[10px] tabular-nums text-muted-foreground space-y-2">
-              <div className="flex justify-between border-b border-border/20 pb-1.5">
-                <span className="text-muted-foreground/60">ZONE POSITION X/Y</span>
-                <span className="font-semibold text-foreground">{zone.positionX.toFixed(0)}px / {zone.positionY.toFixed(0)}px</span>
+            <div className="rounded-sm border border-border bg-background/40 p-2.5 font-mono text-[8px] tabular-nums text-muted-foreground space-y-1.5">
+              <div className="flex items-center justify-between border-b border-border/20 pb-1.5">
+                <span className="text-muted-foreground/50 tracking-widest">POS X/Y</span>
+                <span className="font-semibold text-foreground text-[9px]">{zone.positionX.toFixed(0)}px / {zone.positionY.toFixed(0)}px</span>
               </div>
-              <div className="flex justify-between">
-                <span className="text-muted-foreground/60">DIMENSIONS WxH</span>
-                <span className="font-semibold text-foreground">{zone.width.toFixed(0)}px × {zone.height.toFixed(0)}px</span>
+              <div className="flex items-center justify-between">
+                <span className="text-muted-foreground/50 tracking-widest">SIZE WxH</span>
+                <span className="font-semibold text-foreground text-[9px]">{zone.width.toFixed(0)}px × {zone.height.toFixed(0)}px</span>
               </div>
             </div>
           )}
@@ -572,36 +573,36 @@ function ZoneDetailPanel({
               type="button"
               onClick={handleSave}
               disabled={loading || !newName.trim()}
-              className="flex w-full items-center justify-center rounded-sm bg-foreground py-2 font-mono text-[10px] uppercase tracking-widest text-background transition hover:bg-foreground/90 disabled:opacity-50"
+              className="flex w-full items-center justify-center rounded-sm bg-amber-500 py-2 text-[12px] font-medium text-white transition hover:bg-amber-600 disabled:opacity-50"
             >
-              {loading ? "SAVING..." : "COMMIT CHANGES"}
+              {loading ? "Saving..." : "Save Changes"}
             </button>
             <button
               type="button"
               onClick={handleCancel}
               disabled={loading}
-              className="flex w-full items-center justify-center py-2 font-mono text-[10px] uppercase tracking-widest border border-border text-muted-foreground rounded-sm transition hover:bg-accent"
+              className="flex w-full items-center justify-center rounded-sm bg-zinc-800 py-2 text-[12px] font-medium text-white transition hover:bg-zinc-700 disabled:opacity-50"
             >
-              CANCEL
+              Cancel
             </button>
           </>
         ) : (
           <>
             <a
               href={`/dashboard/inventory?zoneId=${zone.id}`}
-              className="flex w-full items-center justify-between rounded-sm border border-border px-3 py-2 text-[10px] font-mono uppercase tracking-widest text-muted-foreground transition hover:bg-accent hover:text-foreground"
+              className="flex w-full items-center justify-between rounded-sm bg-zinc-800 px-3 py-2 text-[12px] font-medium text-white transition hover:bg-zinc-700"
             >
-              <span>ACCESS INVENTORY</span>
+              <span>Access Inventory</span>
               <ChevronRight className="h-3.5 w-3.5" />
             </a>
             <button
               type="button"
               onClick={handleDelete}
               disabled={loading}
-              className="flex w-full items-center justify-center gap-1.5 rounded-sm border border-destructive/20 py-2 font-mono text-[10px] uppercase tracking-widest text-destructive transition hover:bg-destructive/10 disabled:opacity-50"
+              className="flex w-full items-center justify-center gap-1.5 rounded-sm bg-red-500 py-2 text-[12px] font-medium text-white transition hover:bg-red-600 disabled:opacity-50"
             >
               <Trash2 className="h-3 w-3" />
-              DELETE ZONE
+              Delete Zone
             </button>
           </>
         )}
@@ -617,6 +618,7 @@ export function ZonesClient() {
 
   const [viewMode, setViewMode] = useState<ViewMode>("map");
   const [showCreate, setShowCreate] = useState(false);
+  const [showBanner, setShowBanner] = useState(true);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [savingLayout, setSavingLayout] = useState(false);
   const [toastMsg, setToastMsg] = useState<{ type: "success" | "error", message: string } | null>(null);
@@ -629,6 +631,7 @@ export function ZonesClient() {
   const [routeStartId, setRouteStartId] = useState<string>("");
   const [routeEndId, setRouteEndId] = useState<string>("");
   const [routeResult, setRouteResult] = useState<RouteResult | null>(null);
+  const [showRoutePanel, setShowRoutePanel] = useState(false);
 
   // Build searchable items
   const routeOptions = useMemo(() => {
@@ -793,7 +796,7 @@ export function ZonesClient() {
     }
 
     return processed;
-  }, [zones, localOffsets, mapWidth]);
+  }, [zones, localOffsets, localSizes, mapWidth]);
 
   const selectedLayoutZone = layoutZones.find((lz) => lz.zone.id === selectedId) ?? null;
   const selectedZone = selectedLayoutZone?.zone ?? null;
@@ -847,6 +850,7 @@ export function ZonesClient() {
   function refresh() {
     void utils.zone.list.invalidate();
     void utils.zone.stats.invalidate();
+    void utils.zone.floorPlan.invalidate();
   }
 
   function handleCalculateRoute() {
@@ -906,7 +910,7 @@ export function ZonesClient() {
         <div className="flex items-center gap-3">
           <Map className="h-4 w-4 text-logistics-cyan" />
           <div>
-            <h1 className="text-[14px] font-medium tracking-tight text-foreground">Facility Layout</h1>
+            <h1 className="text-[14px] font-medium tracking-tight text-foreground">Facility Map</h1>
             <p className="text-[12px] text-muted-foreground/80 tabular-nums">
               {zones?.filter((z) => z.isActive).length ?? 0} active ·{" "}
               {zones?.length ?? 0} total
@@ -920,10 +924,10 @@ export function ZonesClient() {
               type="button"
               onClick={handleSaveLayout}
               disabled={savingLayout || hasCollisions}
-              className={`flex items-center gap-1.5 rounded-md border px-3 py-1.5 text-[12px] font-medium tracking-tight transition ${
+              className={`flex items-center gap-1.5 rounded-md px-3 py-1.5 text-[12px] font-medium tracking-tight transition ${
                 hasCollisions
-                  ? "border-destructive/50 bg-destructive/10 text-destructive opacity-50 cursor-not-allowed"
-                  : "border-logistics-amber/50 bg-logistics-amber/10 text-logistics-amber hover:bg-logistics-amber/20"
+                  ? "bg-red-500/20 text-red-500 opacity-50 cursor-not-allowed"
+                  : "bg-amber-500 text-white hover:bg-amber-600"
               }`}
               title={hasCollisions ? "Cannot save layout with overlapping zones" : "Save Layout"}
             >
@@ -963,13 +967,37 @@ export function ZonesClient() {
           <button
             type="button"
             onClick={() => setShowCreate(true)}
-            className="flex items-center gap-1.5 rounded-md bg-logistics-amber px-3 py-1.5 text-[12px] font-medium tracking-tight text-black transition hover:brightness-110"
+            className="flex items-center gap-1.5 rounded border border-[var(--border-base)] bg-zinc-950 px-3 py-1.5 text-[12px] font-medium tracking-tight text-foreground transition hover:bg-accent"
           >
-            <Plus className="h-3.5 w-3.5" />
-            New Zone
+            <Plus className="h-3.5 w-3.5 text-logistics-cyan" />
+            Create Area
           </button>
         </div>
       </div>
+
+      {showBanner && (
+        <div className="shrink-0 border-b border-logistics-cyan/30 bg-logistics-cyan/5 px-5 py-3 relative group">
+          <div className="flex justify-between items-start">
+            <div>
+              <h2 className="text-[13px] font-semibold text-logistics-cyan mb-1 flex items-center gap-1.5">
+                Welcome to Facility Map
+              </h2>
+              <ul className="text-[12px] text-muted-foreground/80 space-y-0.5 list-disc list-inside">
+                <li>Drag areas to arrange warehouse layout</li>
+                <li>Resize areas to match real-world locations</li>
+                <li>Click an area to view stored inventory</li>
+                <li>Select two areas to find the fastest route</li>
+              </ul>
+            </div>
+            <button 
+              onClick={() => setShowBanner(false)}
+              className="text-muted-foreground hover:text-foreground transition-colors p-1"
+            >
+              ✕
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* ── Stats bar ── */}
       <div className="flex shrink-0 items-center gap-px border-b border-border bg-background">
@@ -988,7 +1016,7 @@ export function ZonesClient() {
       </div>
 
       {/* ── Body ── */}
-      <div className="flex flex-1 overflow-hidden">
+      <div className="flex flex-1 overflow-hidden relative">
 
         {/* Main area */}
         <div className="flex-1 overflow-auto">
@@ -1030,30 +1058,37 @@ export function ZonesClient() {
               </div>
 
               {!zones?.length && (
-                <div className="absolute inset-0 flex flex-col items-center justify-center gap-3">
-                  <div className="flex h-16 w-16 items-center justify-center rounded border border-dashed border-border">
-                    <Map className="h-6 w-6 text-muted-foreground/30" />
-                  </div>
-                  <p className="text-xs text-muted-foreground">
-                    No zones yet — click{" "}
-                    <button
-                      type="button"
-                      onClick={() => setShowCreate(true)}
-                      className="text-logistics-amber hover:underline"
-                    >
-                      New Zone
-                    </button>{" "}
-                    to get started
-                  </p>
+                <div className="absolute inset-0 flex items-center justify-center p-6 bg-background/50 backdrop-blur-sm z-20">
+                  <EmptyState 
+                    icon={Map}
+                    title="No Storage Areas Yet"
+                    description="Create your first storage area to map your facility."
+                    action={
+                      <button
+                        type="button"
+                        onClick={() => setShowCreate(true)}
+                        className="flex items-center gap-1.5 rounded border border-[var(--border-base)] bg-[var(--bg-elevated)] px-4 py-2 text-[13px] font-medium tracking-tight text-foreground transition hover:bg-accent"
+                      >
+                        <Plus className="h-4 w-4" />
+                        Create Area
+                      </button>
+                    }
+                  />
                 </div>
               )}
 
               {/* Route Finder Panel */}
-              <div className="absolute right-4 top-4 w-[280px] rounded border border-border bg-card/85 backdrop-blur-sm z-40 shadow-xl p-4 flex flex-col gap-3">
-                <div className="flex items-center gap-2 border-b border-border/50 pb-2 mb-1">
-                  <Route className="h-4 w-4 text-logistics-cyan" />
-                  <h3 className="text-[12px] font-semibold tracking-tight uppercase font-mono">Route Finder</h3>
-                </div>
+              {showRoutePanel ? (
+                <div className="absolute right-4 top-4 w-[280px] rounded border border-border bg-card/85 backdrop-blur-sm z-40 shadow-xl p-4 flex flex-col gap-3">
+                  <div className="flex items-center justify-between border-b border-border/50 pb-2 mb-1">
+                    <div className="flex items-center gap-2">
+                      <Route className="h-4 w-4 text-logistics-cyan" />
+                      <h3 className="text-[12px] font-semibold tracking-tight uppercase font-mono">Find Fastest Route</h3>
+                    </div>
+                    <button onClick={() => setShowRoutePanel(false)} className="text-muted-foreground hover:text-foreground">
+                      <X className="h-4 w-4" />
+                    </button>
+                  </div>
                 
                 <div className="flex flex-col gap-2">
                   <div className="space-y-1">
@@ -1084,16 +1119,16 @@ export function ZonesClient() {
                 <div className="flex gap-2 mt-2">
                   <button
                     onClick={handleClearRoute}
-                    className="flex-1 border border-border rounded py-1.5 text-[10px] uppercase font-mono tracking-widest text-muted-foreground hover:bg-accent transition"
+                    className="flex-1 bg-zinc-800 rounded py-1.5 text-[12px] font-medium text-white hover:bg-zinc-700 transition"
                   >
                     Clear
                   </button>
                   <button
                     onClick={handleCalculateRoute}
                     disabled={!routeStartId || !routeEndId || routeStartId === routeEndId}
-                    className="flex-[2] bg-logistics-cyan text-black rounded py-1.5 text-[10px] uppercase font-mono tracking-widest font-semibold hover:brightness-110 transition disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-1.5"
+                    className="flex-[2] bg-amber-500 text-white rounded py-1.5 text-[12px] font-medium hover:bg-amber-600 transition disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-1.5"
                   >
-                    <Navigation className="h-3 w-3" /> Find Route
+                    <Navigation className="h-3 w-3" /> Calculate Route
                   </button>
                 </div>
                 
@@ -1114,6 +1149,15 @@ export function ZonesClient() {
                   </div>
                 )}
               </div>
+              ) : (
+                <button
+                  onClick={() => setShowRoutePanel(true)}
+                  className="absolute right-4 top-4 z-40 flex items-center gap-2 rounded-full border border-border bg-card/85 px-4 py-2 text-[12px] font-medium shadow-xl backdrop-blur-sm transition hover:bg-accent hover:text-foreground text-muted-foreground"
+                >
+                  <Route className="h-4 w-4 text-logistics-cyan" />
+                  Find Route
+                </button>
+              )}
 
               {/* SVG Route Overlay */}
               {routeResult && (
@@ -1175,6 +1219,24 @@ export function ZonesClient() {
                 );
               })}
             </div>
+          ) : !zones?.length ? (
+            <div className="flex h-full items-center justify-center p-6">
+              <EmptyState 
+                icon={Map}
+                title="No Storage Areas Yet"
+                description="Create your first storage area to map your facility."
+                action={
+                  <button
+                    type="button"
+                    onClick={() => setShowCreate(true)}
+                    className="flex items-center gap-1.5 rounded border border-[var(--border-base)] bg-[var(--bg-elevated)] px-4 py-2 text-[13px] font-medium tracking-tight text-foreground transition hover:bg-accent"
+                  >
+                    <Plus className="h-4 w-4" />
+                    Create Area
+                  </button>
+                }
+              />
+            </div>
           ) : (
             /* ── LIST VIEW ── */
             <div className="p-4">
@@ -1218,13 +1280,6 @@ export function ZonesClient() {
                       </tr>
                     );
                   })}
-                  {!zones?.length && (
-                    <tr>
-                      <td colSpan={5} className="py-8 text-center text-muted-foreground">
-                        No zones found
-                      </td>
-                    </tr>
-                  )}
                 </tbody>
               </table>
             </div>

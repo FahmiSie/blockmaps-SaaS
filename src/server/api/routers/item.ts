@@ -311,37 +311,131 @@ export const inventoryRouter = createTRPCRouter({
     }),
 
   // ── COMPANY-WIDE STOCK OVERVIEW ───────────────────────────
-  overview: companyProcedure.query(async ({ ctx }) => {
-    const items = await ctx.prisma.item.findMany({
-      where: {
-        companyId: ctx.companyId,
-      },
-      include: {
-        inventory: {
-          include: {
-            zone: { select: { id: true, name: true, type: true } },
-          },
-        },
-      },
-      orderBy: { name: "asc" },
-    });
+  overview: companyProcedure
+    .input(
+      z.object({
+        page: z.number().int().min(1).default(1),
+        limit: z.number().int().min(1).max(100).default(20),
+        search: z.string().optional(),
+      }).optional().default({})
+    )
+    .query(async ({ ctx, input }) => {
+      const { page, limit, search } = input;
+      const skip = (page - 1) * limit;
 
-    return items.map((item) => {
-      const totalQuantity = item.inventory.reduce((sum, inv) => sum + inv.quantity, 0);
-      const zones = item.inventory.map((inv) => ({
-        zone: inv.zone,
-        quantity: inv.quantity,
-      }));
-      return {
-        item: {
-          id: item.id,
-          name: item.name,
-          sku: item.sku,
-          unit: item.unit,
-        },
-        totalQuantity,
-        zones,
+      const where = {
+        companyId: ctx.companyId,
+        ...(search && {
+          OR: [
+            { name: { contains: search, mode: "insensitive" as const } },
+            { sku: { contains: search, mode: "insensitive" as const } },
+            { unit: { contains: search, mode: "insensitive" as const } },
+            { inventory: { some: { zone: { name: { contains: search, mode: "insensitive" as const } } } } },
+          ],
+        }),
       };
-    });
-  }),
+
+      const [items, total] = await Promise.all([
+        ctx.prisma.item.findMany({
+          where,
+          skip,
+          take: limit,
+          include: {
+            inventory: {
+              include: {
+                zone: { select: { id: true, name: true, type: true } },
+              },
+            },
+          },
+          orderBy: { name: "asc" },
+        }),
+        ctx.prisma.item.count({ where }),
+      ]);
+
+      const formattedItems = items.map((item) => {
+        const totalQuantity = item.inventory.reduce((sum, inv) => sum + inv.quantity, 0);
+        const zones = item.inventory.map((inv) => ({
+          zone: inv.zone,
+          quantity: inv.quantity,
+        }));
+        return {
+          item: {
+            id: item.id,
+            name: item.name,
+            sku: item.sku,
+            unit: item.unit,
+          },
+          totalQuantity,
+          zones,
+        };
+      });
+
+      return {
+        items: formattedItems,
+        total,
+        page,
+        limit,
+        totalPages: Math.ceil(total / limit),
+      };
+    }),
+
+  // ── COMPANY-WIDE STOCK BY ZONE ───────────────────────────
+  stockOverview: companyProcedure
+    .input(
+      z.object({
+        page: z.number().int().min(1).default(1),
+        limit: z.number().int().min(1).max(100).default(10),
+        search: z.string().optional(),
+      }).optional().default({})
+    )
+    .query(async ({ ctx, input }) => {
+      const { page, limit, search } = input;
+      const skip = (page - 1) * limit;
+
+      const where = {
+        companyId: ctx.companyId,
+        ...(search && {
+          OR: [
+            { name: { contains: search, mode: "insensitive" as const } },
+            { inventory: { some: { item: { OR: [
+              { name: { contains: search, mode: "insensitive" as const } },
+              { sku: { contains: search, mode: "insensitive" as const } }
+            ] } } } },
+          ],
+        }),
+      };
+
+      const [zones, total] = await Promise.all([
+        ctx.prisma.zone.findMany({
+          where,
+          skip,
+          take: limit,
+          include: {
+            inventory: {
+              include: {
+                item: true,
+              },
+              ...(search && {
+                where: {
+                  OR: [
+                    { item: { name: { contains: search, mode: "insensitive" as const } } },
+                    { item: { sku: { contains: search, mode: "insensitive" as const } } }
+                  ]
+                }
+              })
+            },
+          },
+          orderBy: { name: "asc" },
+        }),
+        ctx.prisma.zone.count({ where }),
+      ]);
+
+      return {
+        zones,
+        total,
+        page,
+        limit,
+        totalPages: Math.ceil(total / limit),
+      };
+    }),
 });

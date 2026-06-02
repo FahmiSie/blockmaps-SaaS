@@ -97,6 +97,38 @@ export async function registerAction(
   }
 }
 
+// ── RESEND VERIFICATION EMAIL ─────────────────────────────
+
+export async function resendVerificationEmailAction(
+  email: string
+): Promise<ActionResult> {
+  try {
+    const user = await prisma.user.findUnique({ where: { email } });
+    if (!user) {
+      return { success: false, error: "User not found." };
+    }
+    if (user.emailVerified) {
+      return { success: false, error: "Email is already verified." };
+    }
+
+    const verifyToken = crypto.randomBytes(32).toString("hex");
+    const verifyTokenExp = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours
+
+    await prisma.user.update({
+      where: { id: user.id },
+      data: { verifyToken, verifyTokenExp },
+    });
+
+    console.log(`\n\n[DEV ONLY] Resend Verify Email Link: http://localhost:3000/verify-email?token=${verifyToken}\n\n`);
+    await sendVerificationEmail(email, user.name || "User", verifyToken);
+    
+    return { success: true, data: undefined };
+  } catch (err) {
+    console.error("[resendVerificationEmailAction]", err);
+    return { success: false, error: "Failed to resend verification email." };
+  }
+}
+
 // ── UPDATE PROFILE ─────────────────────────────────────────
 
 export async function updateProfileAction(
