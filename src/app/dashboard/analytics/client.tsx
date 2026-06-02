@@ -2,9 +2,10 @@
 
 import { api } from "@/trpc/react";
 import {
-  RefreshCw, TrendingUp, TrendingDown, Minus,
-  Truck, Map, Package, Users, CheckCircle2, Clock, Activity,
+  BarChart2, RefreshCw, TrendingUp, TrendingDown, Minus,
+  Truck, Map, Package, Users, CheckCircle2, Clock, XCircle, AlertCircle, Activity,
 } from "lucide-react";
+import { useState } from "react";
 import { StatusBadge, ZoneBadge } from "@/components/blockmaps/badges/badges";
 
 /* ─── Helpers ──────────────────────────────────────────────── */
@@ -158,6 +159,7 @@ export function AnalyticsClient() {
   const totalDeliveries = Object.values(summary?.deliveries ?? {}).reduce((s, v) => s + v, 0);
   const zoneByType = zoneStats ?? [];
   const activeZones = zoneByType.filter((z: any) => z.isActive).reduce((s: number, z: any) => s + z._count, 0);
+  const inactiveZones = zoneByType.filter((z: any) => !z.isActive).reduce((s: number, z: any) => s + z._count, 0);
 
   const deliveryDonut = [
     { label: "Pending", value: summary?.deliveries.pending ?? 0, color: "#f59e0b" },

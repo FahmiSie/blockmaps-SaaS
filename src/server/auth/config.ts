@@ -112,7 +112,6 @@ export const authConfig: AuthOptions = {
   session: {
     strategy: "jwt",
     maxAge: 60 * 60 * 24 * 365 * 100,
-    updateAge: 0,
   },
 
   jwt: {
@@ -126,20 +125,6 @@ export const authConfig: AuthOptions = {
         token.id = user.id;
         token.role = user.role;
         token.companyId = user.companyId;
-      }
-
-      // Always re-fetch role and companyId from DB on every token refresh
-      // This ensures that role changes are reflected immediately without
-      // requiring the user to sign out and sign back in.
-      if (token.id) {
-        const dbUser = await prisma.user.findUnique({
-          where: { id: token.id },
-          select: { role: true, companyId: true },
-        });
-        if (dbUser) {
-          token.role = dbUser.role;
-          token.companyId = dbUser.companyId;
-        }
       }
 
       // Allow client-side session.update() calls to patch the token as well

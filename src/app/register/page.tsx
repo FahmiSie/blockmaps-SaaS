@@ -2,13 +2,14 @@
 
 import Link from "next/link";
 import { useState } from "react";
-import { ArrowRight, Loader2, ArrowLeft, CheckCircle2 } from "lucide-react";
+import { ArrowRight, Loader2, ArrowLeft, CheckCircle2, Eye, EyeOff } from "lucide-react";
 import { registerAction } from "@/server/actions/users.action";
 
 export default function RegisterPage() {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState(false);
@@ -147,16 +148,25 @@ export default function RegisterPage() {
                     <label className="text-[12px] font-medium text-foreground">
                       Password
                     </label>
-                    <input
-                      type="password"
-                      required
-                      value={password}
-                      onChange={(e) => setPassword(e.target.value)}
-                      className="w-full rounded-sm border border-border bg-background px-3 py-2 text-[14px] text-foreground outline-none transition-colors focus:border-foreground/30 focus:ring-1 focus:ring-foreground/30 placeholder:text-muted-foreground/40"
-                      placeholder="Choose a password"
-                      minLength={8}
-                      maxLength={100}
-                    />
+                    <div className="relative">
+                      <input
+                        type={showPassword ? "text" : "password"}
+                        required
+                        value={password}
+                        onChange={(e) => setPassword(e.target.value)}
+                        className="w-full rounded-sm border border-border bg-background px-3 py-2 pr-10 text-[14px] text-foreground outline-none transition-colors focus:border-foreground/30 focus:ring-1 focus:ring-foreground/30 placeholder:text-muted-foreground/40"
+                        placeholder="Choose a password"
+                        minLength={8}
+                        maxLength={100}
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowPassword(!showPassword)}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+                      >
+                        {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                      </button>
+                    </div>
                   </div>
 
                   <button
