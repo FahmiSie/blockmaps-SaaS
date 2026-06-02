@@ -4,6 +4,7 @@ import { zoneRouter } from "@/server/api/routers/zone";
 import { itemRouter, inventoryRouter } from "@/server/api/routers/item";
 import { deliveryRouter } from "@/server/api/routers/delivery";
 import { createCallerFactory, createTRPCRouter } from "@/server/api/trpc";
+import { paymentRouter } from "./routers/payment";
 
 /**
  * This is the primary router for your server.
@@ -16,6 +17,7 @@ export const appRouter = createTRPCRouter({
   zone: zoneRouter,
   item: itemRouter,
   inventory: inventoryRouter,
+   payment: paymentRouter,
   delivery: deliveryRouter,
 });
 

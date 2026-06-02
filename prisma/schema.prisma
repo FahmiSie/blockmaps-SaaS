@@ -87,6 +87,7 @@ model User {
     company          Company?          @relation(fields: [companyId], references: [id])
     accounts         Account[]
     sessions         Session[]
+    transactions Transaction[]
     deliveryRequests DeliveryRequest[] @relation("RequestedBy")
     approvedRequests DeliveryRequest[] @relation("ApprovedBy")
 }
@@ -104,8 +105,26 @@ model Company {
 
     users    User[]
     zones    Zone[]
+    transactions Transaction[]
     items    Item[]
     deliveries DeliveryRequest[]
+}
+
+model Transaction {
+    id           String   @id @default(cuid())
+    user_id      String
+    company_id   String
+    order_id     String   @unique
+    amount       Int
+    status       String   @default("pending")
+    payment_type String?
+    snap_token   String?
+    description  String?
+    created_at   DateTime @default(now())
+    updated_at   DateTime @updatedAt
+
+    user    User    @relation(fields: [user_id], references: [id], onDelete: Cascade)
+    company Company @relation(fields: [company_id], references: [id], onDelete: Cascade)
 }
 
 // ============ FLOOR PLAN ============
