@@ -5,10 +5,8 @@ import {
   protectedProcedure,
   adminProcedure,
 } from "@/server/api/trpc";
-import {
-  createMidtransTransaction,
-  coreApi,
-} from "@/server/actions/payment.action";
+import { createMidtransTransaction } from "@/server/actions/payment.action";
+import { coreApi } from "@/lib/midtrans";
 
 export const paymentRouter = createTRPCRouter({
   // ── CREATE TRANSACTION ─────────────────────────────────
