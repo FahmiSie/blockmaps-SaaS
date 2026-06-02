@@ -100,6 +100,7 @@ model Company {
     slug      String   @unique
     createdAt DateTime @default(now())
     updatedAt DateTime @updatedAt
+    status    statusCompany @default(Active)
 
     users    User[]
     zones    Zone[]
@@ -189,4 +190,10 @@ model DeliveryItem {
 
     deliveryRequest DeliveryRequest @relation(fields: [deliveryRequestId], references: [id], onDelete: Cascade)
     item            Item            @relation(fields: [itemId], references: [id])
+}
+
+
+enum statusCompany {
+    Active
+    Delete
 }
