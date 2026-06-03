@@ -7,6 +7,7 @@ import crypto from "crypto";
 import { prisma } from "@/server/db";
 import { auth } from "@/server/auth";
 import { sendVerificationEmail } from "./verify-token.email";
+import { sendInvitationEmail } from "./invite.email";
 
 // ── HELPERS ────────────────────────────────────────────────
 
@@ -19,7 +20,7 @@ async function getAuthenticatedUser() {
   if (!session?.user?.id) return null;
   return prisma.user.findUnique({
     where: { id: session.user.id },
-    select: { id: true, role: true, companyId: true },
+    select: { id: true, role: true, companyId: true,name: true, email: true },
   });
 }
 
@@ -74,6 +75,7 @@ export async function registerAction(
         data: { name, password: hashed, verifyToken, verifyTokenExp },
         select: { id: true },
       });
+      await sendVerificationEmail(email, name, verifyToken).catch(console.error);
 
       console.log(`\n\n[DEV ONLY] Verify Email Link: http://localhost:3000/verify-email?token=${verifyToken}\n\n`);
       return { success: true, data: user };
@@ -216,6 +218,7 @@ export async function inviteUserAction(
         },
         select: { id: true, name: true },
       });
+      await sendInvitationEmail(parsed.data.email, parsed.data.role, actor.name ?? actor.email ?? "Admin").catch(console.error);
       revalidatePath("/admin/users");
       return { success: true, data: user };
     }
@@ -226,7 +229,7 @@ export async function inviteUserAction(
       data: { companyId: actor.companyId, role: parsed.data.role },
       select: { id: true, name: true },
     });
-
+    await sendInvitationEmail(parsed.data.email, parsed.data.role, actor.name ?? actor.email ?? "Admin").catch(console.error);
     revalidatePath("/admin/users");
     return { success: true, data: user };
   } catch (err) {

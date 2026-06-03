@@ -11,7 +11,7 @@ export async function sendVerificationEmail(
   const url = `${process.env.BASE_URL}/verify-email?token=${token}`;
 
   await resend.emails.send({
-    from: "Blockmaps <noreply@moklet.org>",
+    from: "Blockmaps <noreply@noreply.moklet.org>",
     to: email,
     subject: `Verifikasi Email Kamu — ${APP_NAME}`,
     html: `
