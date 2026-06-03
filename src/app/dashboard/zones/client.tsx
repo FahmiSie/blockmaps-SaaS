@@ -19,7 +19,7 @@ import {
   X,
 } from "lucide-react";
 import { createZoneAction, deleteZoneAction, updateZoneAction } from "@/server/actions/zone.action";
-import { buildGraph, findShortestPath, type RouteResult, type Node } from "@/lib/routing";
+import { findMultiStopRoute, type MultiRouteResult, type RouteSegment, type Node, type Rect } from "@/lib/routing";
 import { EmptyState } from "@/components/blockmaps/EmptyState";
 
 // ─── Zone type config ────────────────────────────────────────────
@@ -34,7 +34,7 @@ type ZoneType = keyof typeof ZONE_TYPE_CONFIG;
 type ViewMode = "map" | "list";
 
 const GRID_SIZE = 32;
-const CANVAS_PADDING = 0; // min gap from all canvas edges
+const CANVAS_PADDING = 32; // min gap from all canvas edges
 
 export type LayoutZone = {
   rawX: number;
@@ -62,6 +62,7 @@ function ZoneBlock({
   layoutZone,
   selected,
   isRouteStart,
+  isRouteMiddle,
   isRouteEnd,
   isRoutePath,
   isDimmed,
@@ -72,6 +73,7 @@ function ZoneBlock({
   layoutZone: LayoutZone;
   selected: boolean;
   isRouteStart?: boolean;
+  isRouteMiddle?: boolean;
   isRouteEnd?: boolean;
   isRoutePath?: boolean;
   isDimmed?: boolean;
@@ -157,6 +159,8 @@ function ZoneBlock({
           ? "border-logistics-green bg-logistics-green/10 ring-2 ring-logistics-green shadow-lg shadow-logistics-green/20"
           : isRouteEnd
           ? "border-logistics-amber bg-logistics-amber/10 ring-2 ring-logistics-amber shadow-lg shadow-logistics-amber/20"
+          : isRouteMiddle
+          ? "border-logistics-cyan bg-logistics-cyan/10 ring-2 ring-logistics-cyan shadow-lg shadow-logistics-cyan/20"
           : isRoutePath
           ? "border-logistics-cyan bg-logistics-cyan/5 ring-1 ring-logistics-cyan shadow-[0_0_15px_rgba(0,255,255,0.15)]"
           : !zone.isActive
@@ -626,11 +630,11 @@ export function ZonesClient() {
   const [localSizes, setLocalSizes] = useState<Record<string, { dw: number; dh: number }>>({});
   const mapRef = useRef<HTMLDivElement>(null);
   const [mapWidth, setMapWidth] = useState(1000);
+  const [mapHeight, setMapHeight] = useState(650);
 
   // Routing State
-  const [routeStartId, setRouteStartId] = useState<string>("");
-  const [routeEndId, setRouteEndId] = useState<string>("");
-  const [routeResult, setRouteResult] = useState<RouteResult | null>(null);
+  const [routeStops, setRouteStops] = useState<string[]>(["", "", ""]);
+  const [routeResult, setRouteResult] = useState<MultiRouteResult | null>(null);
   const [showRoutePanel, setShowRoutePanel] = useState(false);
 
   // Build searchable items
@@ -649,28 +653,29 @@ export function ZonesClient() {
     return options.sort((a, b) => a.label.localeCompare(b.label));
   }, [zones]);
 
-  // Measure map container width dynamically
   useEffect(() => {
     const el = mapRef.current;
     if (!el) return;
 
-    const updateWidth = () => {
+    const updateSize = () => {
       if (mapRef.current) {
-        setMapWidth(mapRef.current.getBoundingClientRect().width);
+        setMapWidth(mapRef.current.clientWidth);
+        setMapHeight(mapRef.current.clientHeight);
       }
     };
 
-    updateWidth();
+    updateSize();
 
-    const observer = new ResizeObserver(updateWidth);
+    const observer = new ResizeObserver(updateSize);
     observer.observe(el);
-    window.addEventListener("resize", updateWidth);
+    window.addEventListener("resize", updateSize);
 
     return () => {
       observer.disconnect();
-      window.removeEventListener("resize", updateWidth);
+      window.removeEventListener("resize", updateSize);
     };
   }, [viewMode, isLoading]);
+
 
   const handlePositionChange = useCallback((id: string, dx: number, dy: number) => {
     setLocalOffsets((prev) => {
@@ -684,17 +689,14 @@ export function ZonesClient() {
       const rawX = zone.positionX;
       const rawY = zone.positionY;
       const renderW = Math.max(GRID_SIZE, Math.round(zone.width / GRID_SIZE) * GRID_SIZE);
+      const renderH = Math.max(GRID_SIZE, Math.round(zone.height / GRID_SIZE) * GRID_SIZE);
 
       let targetX = rawX + newDx;
       let targetY = rawY + newDy;
 
-      // Real-time clamp (prevents accumulating hidden offset when dragged past boundary)
+      // Real-time clamp (minimums only, allowing expansion to the right/bottom)
       targetX = Math.max(CANVAS_PADDING, targetX);
       targetY = Math.max(CANVAS_PADDING, targetY);
-      if (mapWidth > 0) {
-        const maxX = Math.max(0, mapWidth - renderW);
-        targetX = Math.min(targetX, maxX);
-      }
 
       return { ...prev, [id]: { dx: targetX - rawX, dy: targetY - rawY } };
     });
@@ -721,7 +723,7 @@ export function ZonesClient() {
 
       return { ...prev, [id]: { dw: targetW - rawW, dh: targetH - rawH } };
     });
-  }, [zones]);
+  }, [zones, mapWidth, mapHeight]);
 
   const layoutZones = useMemo(() => {
     if (!zones) return [];
@@ -755,11 +757,7 @@ export function ZonesClient() {
       // Top/Left: minimum padding from canvas edge
       renderX = Math.max(CANVAS_PADDING, renderX);
       renderY = Math.max(CANVAS_PADDING, renderY);
-      // Right: zone right edge must not exceed canvas width
-      if (mapWidth > 0) {
-        const maxX = Math.max(0, mapWidth - renderW);
-        renderX = Math.min(renderX, maxX);
-      }
+      
       // Re-snap to grid after clamping
       renderX = Math.round(renderX / GRID_SIZE) * GRID_SIZE;
       renderY = Math.round(renderY / GRID_SIZE) * GRID_SIZE;
@@ -797,6 +795,14 @@ export function ZonesClient() {
 
     return processed;
   }, [zones, localOffsets, localSizes, mapWidth]);
+
+  const contentWidth = useMemo(() => {
+    return Math.max(mapWidth, ...layoutZones.map(z => z.renderX + z.renderW + CANVAS_PADDING));
+  }, [layoutZones, mapWidth]);
+
+  const contentHeight = useMemo(() => {
+    return Math.max(mapHeight, ...layoutZones.map(z => z.renderY + z.renderH + CANVAS_PADDING));
+  }, [layoutZones, mapHeight]);
 
   const selectedLayoutZone = layoutZones.find((lz) => lz.zone.id === selectedId) ?? null;
   const selectedZone = selectedLayoutZone?.zone ?? null;
@@ -854,28 +860,37 @@ export function ZonesClient() {
   }
 
   function handleCalculateRoute() {
-    if (!routeStartId || !routeEndId || routeStartId === routeEndId) return;
+    const validStops = routeStops.filter(Boolean);
+    if (validStops.length < 2) return;
 
-    const nodes: Node[] = layoutZones.map(lz => ({
+    for (let i = 0; i < validStops.length - 1; i++) {
+      if (validStops[i] === validStops[i+1]) {
+        setToastMsg({ type: "error", message: "Cannot have duplicate consecutive stops." });
+        setTimeout(() => setToastMsg(null), 3000);
+        return;
+      }
+    }
+
+    const rects: Rect[] = layoutZones.map(lz => ({
       id: lz.zone.id,
-      x: lz.renderX + lz.renderW / 2,
-      y: lz.renderY + lz.renderH / 2,
+      x: lz.renderX,
+      y: lz.renderY,
+      w: lz.renderW,
+      h: lz.renderH,
     }));
 
-    const graph = buildGraph(nodes, 3);
-    const result = findShortestPath(graph, routeStartId, routeEndId);
-    
-    if (result) {
+    try {
+      const result = findMultiStopRoute(rects, validStops, contentWidth, contentHeight);
       setRouteResult(result);
-    } else {
-      setToastMsg({ type: "error", message: "No route found." });
+    } catch (e: any) {
+      setToastMsg({ type: "error", message: e.message || "No safe route available." });
       setTimeout(() => setToastMsg(null), 3000);
+      setRouteResult(null);
     }
   }
 
   function handleClearRoute() {
-    setRouteStartId("");
-    setRouteEndId("");
+    setRouteStops(["", "", ""]);
     setRouteResult(null);
   }
 
@@ -1019,7 +1034,7 @@ export function ZonesClient() {
       <div className="flex flex-1 overflow-hidden relative">
 
         {/* Main area */}
-        <div className="flex-1 overflow-auto">
+        <div className="flex-1 overflow-auto" ref={mapRef}>
           {isLoading ? (
             <div className="flex h-full items-center justify-center">
               <div className="space-y-3 text-center">
@@ -1030,11 +1045,10 @@ export function ZonesClient() {
           ) : viewMode === "map" ? (
             /* ── TACTICAL MAP VIEW ── */
             <div
-              ref={mapRef}
-              className="relative min-h-full min-w-full overflow-hidden grid-dot-bg"
+              className="relative min-h-full min-w-full grid-dot-bg"
               style={{
-                width: "100%",
-                height: "max(100%, 650px)",
+                width: contentWidth,
+                height: contentHeight,
               }}
               onClick={(e) => {
                 if (e.target === e.currentTarget) setSelectedId(null);
@@ -1083,7 +1097,7 @@ export function ZonesClient() {
                   <div className="flex items-center justify-between border-b border-border/50 pb-2 mb-1">
                     <div className="flex items-center gap-2">
                       <Route className="h-4 w-4 text-logistics-cyan" />
-                      <h3 className="text-[12px] font-semibold tracking-tight uppercase font-mono">Find Fastest Route</h3>
+                      <h3 className="text-[12px] font-semibold tracking-tight uppercase font-mono">Multi-Stop Route</h3>
                     </div>
                     <button onClick={() => setShowRoutePanel(false)} className="text-muted-foreground hover:text-foreground">
                       <X className="h-4 w-4" />
@@ -1091,29 +1105,56 @@ export function ZonesClient() {
                   </div>
                 
                 <div className="flex flex-col gap-2">
-                  <div className="space-y-1">
-                    <label className="text-[10px] uppercase font-mono tracking-widest text-muted-foreground">From</label>
-                    <select
-                      value={routeStartId}
-                      onChange={e => setRouteStartId(e.target.value)}
-                      className="w-full bg-background border border-border rounded px-2 py-1.5 text-[11px] text-foreground focus:outline-none focus:border-logistics-cyan"
-                    >
-                      <option value="">Select origin...</option>
-                      {routeOptions.map((opt, i) => <option key={`${opt.id}-${i}`} value={opt.id}>{opt.label}</option>)}
-                    </select>
-                  </div>
+                  {routeStops.map((stopId, index) => {
+                    const isOptional = index > 0 && index < routeStops.length - 1;
+                    return (
+                      <div key={`stop-${index}`} className="flex items-end gap-1.5">
+                        <div className="space-y-1 flex-1">
+                          <label className="text-[10px] uppercase font-mono tracking-widest text-muted-foreground">
+                            {index === 0 ? "From" : index === routeStops.length - 1 ? "To" : `Via ${index}`}
+                          </label>
+                          <select
+                            value={stopId}
+                            onChange={e => {
+                              const newStops = [...routeStops];
+                              newStops[index] = e.target.value;
+                              setRouteStops(newStops);
+                            }}
+                            className="w-full bg-background border border-border rounded px-2 py-1.5 text-[11px] text-foreground focus:outline-none focus:border-logistics-cyan"
+                          >
+                            <option value="">{index === 0 ? "Select origin..." : index === routeStops.length - 1 ? "Select destination..." : "Select stop..."}</option>
+                            {routeOptions.map((opt, i) => <option key={`${opt.id}-${i}`} value={opt.id}>{opt.label}</option>)}
+                          </select>
+                        </div>
+                        {isOptional && (
+                          <button
+                            onClick={() => {
+                              const newStops = [...routeStops];
+                              newStops.splice(index, 1);
+                              setRouteStops(newStops);
+                            }}
+                            className="p-1.5 mb-px rounded text-muted-foreground hover:bg-destructive/10 hover:text-destructive transition-colors"
+                            title="Remove Stop"
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </button>
+                        )}
+                      </div>
+                    );
+                  })}
                   
-                  <div className="space-y-1">
-                    <label className="text-[10px] uppercase font-mono tracking-widest text-muted-foreground">To</label>
-                    <select
-                      value={routeEndId}
-                      onChange={e => setRouteEndId(e.target.value)}
-                      className="w-full bg-background border border-border rounded px-2 py-1.5 text-[11px] text-foreground focus:outline-none focus:border-logistics-cyan"
+                  {routeStops.length < 4 && (
+                    <button
+                      onClick={() => {
+                        const newStops = [...routeStops];
+                        newStops.splice(newStops.length - 1, 0, "");
+                        setRouteStops(newStops);
+                      }}
+                      className="mt-1 flex items-center justify-center gap-1 py-1.5 rounded border border-dashed border-border/60 text-[11px] text-muted-foreground hover:bg-accent hover:text-foreground transition-colors"
                     >
-                      <option value="">Select destination...</option>
-                      {routeOptions.map((opt, i) => <option key={`${opt.id}-${i}`} value={opt.id}>{opt.label}</option>)}
-                    </select>
-                  </div>
+                      <Plus className="h-3 w-3" /> Add Stop
+                    </button>
+                  )}
                 </div>
 
                 <div className="flex gap-2 mt-2">
@@ -1125,18 +1166,34 @@ export function ZonesClient() {
                   </button>
                   <button
                     onClick={handleCalculateRoute}
-                    disabled={!routeStartId || !routeEndId || routeStartId === routeEndId}
+                    disabled={routeStops.filter(Boolean).length < 2}
                     className="flex-[2] bg-amber-500 text-white rounded py-1.5 text-[12px] font-medium hover:bg-amber-600 transition disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-1.5"
                   >
-                    <Navigation className="h-3 w-3" /> Calculate Route
+                    <Navigation className="h-3 w-3" /> Calculate
                   </button>
                 </div>
                 
                 {routeResult && (
                   <div className="mt-3 pt-3 border-t border-border/50 flex flex-col gap-2">
+                    {/* Segment Breakdown */}
+                    {routeResult.segments.length > 1 && (
+                      <div className="space-y-1.5 mb-2">
+                        <span className="text-[10px] uppercase font-mono tracking-widest text-muted-foreground">Segments</span>
+                        {routeResult.segments.map((seg, i) => {
+                          const fromName = zones?.find(z => z.id === seg.fromZoneId)?.name || "Area";
+                          const toName = zones?.find(z => z.id === seg.toZoneId)?.name || "Area";
+                          return (
+                            <div key={`seg-${i}`} className="flex justify-between items-center text-[10px] pl-2 border-l-2 border-border/30">
+                              <span className="text-muted-foreground truncate pr-2 max-w-[170px]">{fromName} → {toName}</span>
+                              <span className="font-mono text-foreground/80">{seg.distanceMeters.toFixed(1)}m</span>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
                     <div className="flex justify-between items-center text-[11px]">
-                      <span className="text-muted-foreground">Distance</span>
-                      <span className="font-mono font-medium">{routeResult.totalDistance.toFixed(1)}m</span>
+                      <span className="text-muted-foreground">Total Distance</span>
+                      <span className="font-mono font-bold text-amber-500">{routeResult.totalDistance.toFixed(1)}m</span>
                     </div>
                     <div className="flex justify-between items-center text-[11px]">
                       <span className="text-muted-foreground flex items-center gap-1.5"><Footprints className="h-3 w-3" /> Walking</span>
@@ -1161,57 +1218,49 @@ export function ZonesClient() {
 
               {/* SVG Route Overlay */}
               {routeResult && (
-                <svg className="absolute inset-0 z-15 pointer-events-none" style={{ minWidth: mapWidth, minHeight: 2000 }}>
+                <svg className="absolute inset-0 z-15 pointer-events-none" style={{ minWidth: contentWidth, minHeight: contentHeight }}>
                   <defs>
-                    <marker id="arrowhead" markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto">
-                      <polygon points="0 0, 6 3, 0 6" fill="rgba(0, 255, 255, 0.8)" />
+                    <marker id="erd-arrow" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto-start-reverse">
+                      <polygon points="0 0, 8 4, 0 8" fill="rgba(100, 116, 139, 1)" />
+                    </marker>
+                    <marker id="erd-dot" markerWidth="6" markerHeight="6" refX="3" refY="3">
+                      <circle cx="3" cy="3" r="2.5" fill="rgba(100, 116, 139, 1)" />
                     </marker>
                   </defs>
                   {(() => {
-                    const points = routeResult.path.map(id => {
-                      const lz = layoutZones.find(z => z.zone.id === id);
-                      if (!lz) return null;
-                      return `${lz.renderX + lz.renderW / 2},${lz.renderY + lz.renderH / 2}`;
-                    }).filter(Boolean);
-                    
-                    if (points.length < 2) return null;
+                    if (routeResult.fullPath.length < 2) return null;
+                    const d = routeResult.fullPath.map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x} ${p.y}`).join(' ');
 
-                    const lines = [];
-                    for (let i = 0; i < points.length - 1; i++) {
-                      const [x1, y1] = points[i]!.split(',').map(Number);
-                      const [x2, y2] = points[i+1]!.split(',').map(Number);
-                      lines.push(
-                        <line
-                          key={i}
-                          x1={x1} y1={y1} x2={x2} y2={y2}
-                          stroke="rgba(0, 255, 255, 0.6)"
-                          strokeWidth="3"
-                          strokeDasharray="8 6"
-                          markerEnd="url(#arrowhead)"
-                          className="animate-[dash_1s_linear_infinite]"
-                        />
-                      );
-                    }
-                    return lines;
+                    return (
+                      <path
+                        d={d}
+                        fill="none"
+                        stroke="rgba(100, 116, 139, 0.8)"
+                        strokeWidth="2.5"
+                        strokeLinejoin="round"
+                        strokeLinecap="round"
+                        markerStart="url(#erd-dot)"
+                        markerEnd="url(#erd-arrow)"
+                      />
+                    );
                   })()}
                 </svg>
               )}
 
               {layoutZones.map((lz) => {
-                const isRoutePath = routeResult?.path.includes(lz.zone.id);
-                const isRouteStart = routeResult?.path[0] === lz.zone.id;
-                const isRouteEnd = routeResult?.path[routeResult.path.length - 1] === lz.zone.id;
-                const isDimmed = routeResult ? !isRoutePath : false;
-
+                const validRouteStops = routeResult ? routeStops.filter(Boolean) : [];
+                const isRoutePath = routeResult?.fullPath.some(n => n.id.startsWith(lz.zone.id + "_"));
+                
                 return (
                   <ZoneBlock
                     key={lz.zone.id}
                     layoutZone={lz}
                     selected={selectedId === lz.zone.id}
                     isRoutePath={isRoutePath}
-                    isRouteStart={isRouteStart}
-                    isRouteEnd={isRouteEnd}
-                    isDimmed={isDimmed}
+                    isRouteStart={lz.zone.id === validRouteStops[0]}
+                    isRouteEnd={lz.zone.id === validRouteStops[validRouteStops.length - 1]}
+                    isRouteMiddle={validRouteStops.slice(1, -1).includes(lz.zone.id)}
+                    isDimmed={Boolean(validRouteStops.length && !validRouteStops.includes(lz.zone.id))}
                     onClick={() => setSelectedId(selectedId === lz.zone.id ? null : lz.zone.id)}
                     onPositionChange={handlePositionChange}
                     onSizeChange={handleSizeChange}

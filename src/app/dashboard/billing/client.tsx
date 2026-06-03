@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import Script from "next/script";
 import { api } from "@/trpc/react";
 import { toast } from "sonner";
@@ -11,6 +12,9 @@ export default function BillingClient() {
   const { data: company, isLoading: isLoadingCompany } = api.company.getCurrent.useQuery();
   const { data: history, isLoading: isLoadingHistory } = api.payment.getTransactionHistory.useQuery();
   const { data: pendingTxs, isLoading: isLoadingPending } = api.payment.getPendingTransactions.useQuery();
+
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 5;
 
   const createTxMutation = api.payment.createTransaction.useMutation({
     onSuccess: (data) => {
@@ -181,10 +185,10 @@ export default function BillingClient() {
                   </div>
                   <button
                     onClick={() => handleResumePayment(tx.snapToken, tx.orderId)}
-                    className="w-full rounded-md py-2 text-xs font-semibold text-inverse transition-all hover:opacity-90"
-                    style={{ backgroundColor: "var(--text-primary)" }}
+                    className="w-full rounded-md py-2 text-xs font-semibold transition-all hover:opacity-90"
+                    style={{ backgroundColor: "var(--text-primary)", color: "var(--bg-base)" }}
                   >
-                    Resume Payment
+                    Continue To The Payment
                   </button>
                 </div>
               ))}
@@ -321,7 +325,12 @@ export default function BillingClient() {
                     </td>
                   </tr>
                 )}
-                {history?.map((tx) => {
+                {(() => {
+                  const totalItems = history?.length || 0;
+                  const totalPages = Math.ceil(totalItems / itemsPerPage);
+                  const paginatedHistory = history?.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
+
+                  return paginatedHistory?.map((tx) => {
                   const isSettled = tx.status === "settlement" || tx.status === "capture";
                   const isPending = tx.status === "pending";
 
@@ -368,9 +377,35 @@ export default function BillingClient() {
                       </td>
                     </tr>
                   );
-                })}
+                  });
+                })()}
               </tbody>
             </table>
+            
+            {/* Pagination Controls */}
+            {history && history.length > itemsPerPage && (
+              <div className="flex items-center justify-between px-6 py-4 border-t border-[var(--border-base)] bg-[var(--bg-subtle)]">
+                <span className="text-xs text-[var(--text-secondary)]">
+                  Showing {(currentPage - 1) * itemsPerPage + 1} to {Math.min(currentPage * itemsPerPage, history.length)} of {history.length} entries
+                </span>
+                <div className="flex items-center gap-2">
+                  <button 
+                    onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                    disabled={currentPage === 1}
+                    className="px-3 py-1.5 text-xs font-medium border border-[var(--border-base)] rounded-md bg-[var(--bg-surface)] text-[var(--text-primary)] hover:bg-[var(--bg-overlay)] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    Previous
+                  </button>
+                  <button 
+                    onClick={() => setCurrentPage(p => Math.min(Math.ceil((history.length) / itemsPerPage), p + 1))}
+                    disabled={currentPage === Math.ceil((history.length) / itemsPerPage)}
+                    className="px-3 py-1.5 text-xs font-medium border border-[var(--border-base)] rounded-md bg-[var(--bg-surface)] text-[var(--text-primary)] hover:bg-[var(--bg-overlay)] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    Next
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       </div>
