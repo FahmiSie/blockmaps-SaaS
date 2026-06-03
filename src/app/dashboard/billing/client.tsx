@@ -326,8 +326,6 @@ export default function BillingClient() {
                   </tr>
                 )}
                 {(() => {
-                  const totalItems = history?.length || 0;
-                  const totalPages = Math.ceil(totalItems / itemsPerPage);
                   const paginatedHistory = history?.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
 
                   return paginatedHistory?.map((tx) => {

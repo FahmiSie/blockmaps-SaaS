@@ -145,11 +145,11 @@ export function buildGraph(nodes: Node[], rects: Rect[], k = 15, padding = 12): 
 
     const nearest = validTargets.slice(0, k);
     nearest.forEach(({ target, dist }) => {
-      graph[node.id].push({ target: target.id, weight: dist });
+      graph[node.id]!.push({ target: target.id, weight: dist });
       
       if (!graph[target.id]) graph[target.id] = [];
-      if (!graph[target.id].some(e => e.target === node.id)) {
-        graph[target.id].push({ target: node.id, weight: dist });
+      if (!graph[target.id]!.some(e => e.target === node.id)) {
+        graph[target.id]!.push({ target: node.id, weight: dist });
       }
     });
   });
@@ -163,7 +163,7 @@ export function findZoneRoute(rects: Rect[], startZoneId: string, endZoneId: str
   const graph = buildGraph(nodes, rects, 15, padding);
   
   // Create START and END virtual connections, only to orthogonal edge nodes (not corners)
-  graph['START'] = nodes
+  graph.START = nodes
     .filter(n => n.id.startsWith(startZoneId + '_') && !n.id.includes('_tl_') && !n.id.includes('_tr_') && !n.id.includes('_bl_') && !n.id.includes('_br_'))
     .map(n => ({ target: n.id, weight: 0 }));
     
@@ -171,7 +171,7 @@ export function findZoneRoute(rects: Rect[], startZoneId: string, endZoneId: str
     .filter(n => n.id.startsWith(endZoneId + '_') && !n.id.includes('_tl_') && !n.id.includes('_tr_') && !n.id.includes('_bl_') && !n.id.includes('_br_'))
     .forEach(n => {
        if (!graph[n.id]) graph[n.id] = [];
-       graph[n.id].push({ target: 'END', weight: 0 });
+       graph[n.id]!.push({ target: 'END', weight: 0 });
     });
 
   const distances: Record<string, number> = {};
@@ -184,7 +184,7 @@ export function findZoneRoute(rects: Rect[], startZoneId: string, endZoneId: str
     distances[node] = Infinity;
     previous[node] = null;
   }
-  distances['START'] = 0;
+  distances.START = 0;
 
   while (unvisited.size > 0) {
     let current: string | null = null;
@@ -212,7 +212,7 @@ export function findZoneRoute(rects: Rect[], startZoneId: string, endZoneId: str
     }
   }
 
-  if (distances['END'] === Infinity || distances['END'] === undefined) return null;
+  if (distances.END === Infinity || distances.END === undefined) return null;
 
   const pathIds: string[] = [];
   let curr: string | null = 'END';
@@ -233,15 +233,15 @@ export function findZoneRoute(rects: Rect[], startZoneId: string, endZoneId: str
   const startRect = rects.find(r => r.id === startZoneId);
   const endRect = rects.find(r => r.id === endZoneId);
   
-  if (startRect && endRect) {
-     const firstNodeId = pathNodes[0].id;
+  if (startRect && endRect && pathNodes.length > 0) {
+     const firstNodeId = pathNodes[0]!.id;
      let startAnchor = { x: startRect.x + startRect.w/2, y: startRect.y + startRect.h/2 };
      if (firstNodeId.includes('_top_')) startAnchor = { x: startRect.x + startRect.w/2, y: startRect.y };
      else if (firstNodeId.includes('_bottom_')) startAnchor = { x: startRect.x + startRect.w/2, y: startRect.y + startRect.h };
      else if (firstNodeId.includes('_left_')) startAnchor = { x: startRect.x, y: startRect.y + startRect.h/2 };
      else if (firstNodeId.includes('_right_')) startAnchor = { x: startRect.x + startRect.w, y: startRect.y + startRect.h/2 };
      
-     const lastNodeId = pathNodes[pathNodes.length - 1].id;
+     const lastNodeId = pathNodes[pathNodes.length - 1]!.id;
      let endAnchor = { x: endRect.x + endRect.w/2, y: endRect.y + endRect.h/2 };
      if (lastNodeId.includes('_top_')) endAnchor = { x: endRect.x + endRect.w/2, y: endRect.y };
      else if (lastNodeId.includes('_bottom_')) endAnchor = { x: endRect.x + endRect.w/2, y: endRect.y + endRect.h };
@@ -252,7 +252,7 @@ export function findZoneRoute(rects: Rect[], startZoneId: string, endZoneId: str
      pathNodes.push({ id: 'END_ANCHOR', x: endAnchor.x, y: endAnchor.y });
   }
 
-  const totalDistancePixels = distances['END'];
+  const totalDistancePixels = distances.END;
   const totalDistanceMeters = totalDistancePixels * PIXELS_TO_METERS;
 
   return {
@@ -299,7 +299,7 @@ export function findMultiStopRoute(rects: Rect[], stops: string[], mapWidth: num
   // Merge full path, removing duplicate boundary nodes
   const fullPath: Node[] = [];
   for (let i = 0; i < segments.length; i++) {
-    const segPath = segments[i].path;
+    const segPath = segments[i]!.path;
     // For all segments after the first, remove the starting anchor because it overlaps 
     // exactly with the ending anchor of the previous segment.
     const pathToAdd = i === 0 ? segPath : segPath.slice(1);
