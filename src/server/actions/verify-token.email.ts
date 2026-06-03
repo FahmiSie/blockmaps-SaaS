@@ -1,4 +1,7 @@
-import { transporter, defaultSender, APP_NAME } from "@/lib/mailer";
+import { Resend } from "resend";
+
+const resend = new Resend(process.env.RESEND_API_KEY);
+const APP_NAME = "Blockmaps";
 
 export async function sendVerificationEmail(
   email: string,
@@ -7,8 +10,8 @@ export async function sendVerificationEmail(
 ) {
   const url = `${process.env.BASE_URL}/verify-email?token=${token}`;
 
-  await transporter.sendMail({
-    from: defaultSender,
+  await resend.emails.send({
+    from: "Blockmaps <noreply@moklet.org>",
     to: email,
     subject: `Verifikasi Email Kamu — ${APP_NAME}`,
     html: `
