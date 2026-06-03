@@ -88,8 +88,37 @@ export const zoneRouter = createTRPCRouter({
         .merge(ZonePositionSchema),
     )
     .mutation(async ({ ctx, input }) => {
+      let finalName = input.name.trim();
+      let isDuplicate = true;
+      let suffixCounter = 1;
+      let checkName = finalName;
+
+      while (isDuplicate) {
+        // Find existing zone with same type and name (case-insensitive) in the same company
+        // Prisma's default filtering might be case-sensitive for PostgreSQL, but let's use standard where for now.
+        // For standard case insensitivity in Prisma (if supported by DB): mode: 'insensitive'
+        // Just fetching all zones for this type and company to do simple check is safer if mode is not supported by SQLite (if using SQLite)
+        
+        // Alternatively, since the number of zones per type per company is usually small, we can fetch them.
+        const existing = await ctx.prisma.zone.findFirst({
+          where: {
+            companyId: ctx.companyId,
+            type: input.type,
+            name: checkName, // exact match
+          }
+        });
+
+        if (existing) {
+          suffixCounter++;
+          checkName = `${finalName}-${suffixCounter}`;
+        } else {
+          isDuplicate = false;
+          finalName = checkName;
+        }
+      }
+
       return ctx.prisma.zone.create({
-        data: { ...input, companyId: ctx.companyId },
+        data: { ...input, name: finalName, companyId: ctx.companyId },
       });
     }),
 
@@ -115,7 +144,7 @@ export const zoneRouter = createTRPCRouter({
     }),
 
   // ── BULK UPSERT POSITIONS (drag-and-drop save) ────────────
-  bulkUpdatePositions: companyProcedure
+  bulkUpdatePositions: adminProcedure
     .input(
       z.array(
         z.object({

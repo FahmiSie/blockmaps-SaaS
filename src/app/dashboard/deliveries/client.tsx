@@ -324,7 +324,7 @@ export function DeliveriesClient({ user }: { user: { id: string; role: string } 
   return (
     <div className="flex h-full flex-col">
       {/* ── Header ── */}
-      <div className="flex shrink-0 items-center justify-between border-b border-border px-5 py-3">
+      <div className="flex flex-col sm:flex-row shrink-0 items-start sm:items-center justify-between border-b border-border px-5 py-3 gap-3 sm:gap-0">
         <div className="flex items-center gap-3">
           <Truck className="h-4 w-4 text-logistics-amber" />
           <div>
@@ -338,7 +338,7 @@ export function DeliveriesClient({ user }: { user: { id: string; role: string } 
         <button
           type="button"
           onClick={() => setShowCreate(true)}
-          className="flex items-center gap-1.5 rounded border border-[var(--border-base)] bg-zinc-950 px-3 py-1.5 text-[12px] font-medium tracking-tight text-foreground transition hover:bg-accent"
+          className="flex w-full sm:w-auto items-center justify-center sm:justify-start gap-1.5 rounded border border-[var(--border-base)] bg-zinc-950 px-3 py-1.5 text-[12px] font-medium tracking-tight text-foreground transition hover:bg-accent"
         >
           <Plus className="h-3.5 w-3.5 text-logistics-cyan" />
           New Transfer
@@ -346,12 +346,12 @@ export function DeliveriesClient({ user }: { user: { id: string; role: string } 
       </div>
 
       {/* ── Status Tabs ── */}
-      <div className="flex shrink-0 gap-2 border-b border-border bg-background px-5 py-2">
+      <div className="flex shrink-0 gap-2 border-b border-border bg-background px-5 py-2 overflow-x-auto whitespace-nowrap no-scrollbar">
         {(["ALL", "PENDING", "APPROVED", "IN_PROGRESS", "COMPLETED", "REJECTED"] as const).map((s) => (
           <button
             key={s}
             onClick={() => setStatusFilter(s)}
-            className={`rounded-sm px-3 py-1.5 text-[12px] font-medium tracking-tight transition ${
+            className={`flex-shrink-0 rounded-sm px-3 py-1.5 text-[12px] font-medium tracking-tight transition ${
               statusFilter === s
                 ? "bg-accent text-foreground shadow-[inset_2px_0_0_0_theme(colors.foreground)]"
                 : "text-muted-foreground hover:bg-accent/50 hover:text-foreground"
@@ -384,7 +384,7 @@ export function DeliveriesClient({ user }: { user: { id: string; role: string } 
             action={
               <button
                 onClick={() => setShowCreate(true)}
-                className="flex items-center gap-1.5 rounded border border-[var(--border-base)] bg-zinc-950 px-4 py-2 text-[13px] font-medium tracking-tight text-foreground transition hover:bg-accent"
+                className="flex w-full sm:w-auto items-center justify-center gap-1.5 rounded border border-[var(--border-base)] bg-zinc-950 px-4 py-2 text-[13px] font-medium tracking-tight text-foreground transition hover:bg-accent"
               >
                 <Plus className="h-4 w-4 text-logistics-cyan" />
                 Create Transfer
@@ -413,8 +413,8 @@ export function DeliveriesClient({ user }: { user: { id: string; role: string } 
                 className="flex flex-col rounded-lg border border-border bg-card p-4 transition-colors hover:border-border/80"
               >
                 {/* Top Row: Route + Status */}
-                <div className="flex items-start justify-between border-b border-border/50 pb-3">
-                  <div className="flex items-center gap-4">
+                <div className="flex flex-col sm:flex-row items-start sm:justify-between border-b border-border/50 pb-3 gap-3 sm:gap-0">
+                  <div className="flex items-start sm:items-center gap-4">
                     {/* Status Icon */}
                     <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-accent">
                       {req.status === "COMPLETED" ? (
@@ -452,8 +452,8 @@ export function DeliveriesClient({ user }: { user: { id: string; role: string } 
                 </div>
 
                 {/* Bottom Row: Items + Actions */}
-                <div className="flex items-center justify-between pt-3">
-                  <div className="flex items-center gap-4 text-[12px] font-medium tracking-tight">
+                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between pt-3 gap-3 sm:gap-0">
+                  <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2 sm:gap-4 text-[12px] font-medium tracking-tight w-full sm:w-auto">
                     <div className="flex items-center gap-1.5 text-muted-foreground">
                       <Package className="h-3.5 w-3.5" />
                       <span>{req.items.length} item types</span>
@@ -471,7 +471,7 @@ export function DeliveriesClient({ user }: { user: { id: string; role: string } 
                   </div>
 
                   {/* Operational Actions */}
-                  <div className="flex items-center gap-2">
+                  <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto mt-2 sm:mt-0">
                     {loadingId === req.id && (
                       <span className="text-[11px] tracking-tight text-muted-foreground animate-pulse mr-2">
                         Processing...
@@ -533,8 +533,8 @@ export function DeliveriesClient({ user }: { user: { id: string; role: string } 
             </div>
 
             {totalPages > 0 && (
-              <div className="flex items-center justify-between border-t border-border pt-4 mt-6">
-                <p className="text-[12px] text-muted-foreground">
+              <div className="flex flex-col sm:flex-row items-center justify-between border-t border-border pt-4 mt-6 gap-3 sm:gap-0">
+                <p className="text-[12px] text-muted-foreground text-center sm:text-left">
                   Showing {(deliveryPage - 1) * 10 + (data?.requests?.length ? 1 : 0)}-{Math.min(deliveryPage * 10, data?.total || 0)} of {data?.total || 0} transfers
                 </p>
                 <div className="flex items-center gap-2">

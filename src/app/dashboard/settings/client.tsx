@@ -27,8 +27,8 @@ const TABS: { id: Tab; label: string; icon: React.ElementType }[] = [
 /* ─── Reusable field row ─────────────────────────────────── */
 function Field({ label, children, hint }: { label: string; children: React.ReactNode; hint?: string }) {
   return (
-    <div className="flex items-start gap-8 py-5 border-b" style={{ borderColor: "var(--border-base)" }}>
-      <div className="w-48 flex-shrink-0">
+    <div className="flex flex-col sm:flex-row items-start gap-2 sm:gap-8 py-5 border-b" style={{ borderColor: "var(--border-base)" }}>
+      <div className="w-full sm:w-48 flex-shrink-0">
         <p className="text-[13px] font-medium" style={{ color: "var(--text-primary)" }}>{label}</p>
         {hint && <p className="mt-0.5 text-[11px]" style={{ color: "var(--text-tertiary)" }}>{hint}</p>}
       </div>
@@ -521,9 +521,9 @@ export function SettingsClient() {
         <p className="text-[12px]" style={{ color: "var(--text-tertiary)" }}>Manage your personal account and preferences</p>
       </div>
 
-      <div className="flex flex-1 overflow-hidden">
+      <div className="flex flex-col sm:flex-row flex-1 overflow-hidden">
         {/* ── Sidebar Tabs ── */}
-        <nav className="w-52 flex-shrink-0 border-r p-4" style={{ borderColor: "var(--border-base)" }}>
+        <nav className="flex sm:flex-col w-full sm:w-52 flex-shrink-0 border-b sm:border-b-0 sm:border-r p-4 overflow-x-auto no-scrollbar gap-2 sm:gap-0" style={{ borderColor: "var(--border-base)" }}>
           {TABS.map(t => {
             const Icon = t.icon;
             const active = tab === t.id;
@@ -531,11 +531,10 @@ export function SettingsClient() {
               <button
                 key={t.id}
                 onClick={() => setTab(t.id)}
-                className="mb-0.5 flex w-full items-center gap-2.5 rounded-sm px-3 py-2 text-[13px] font-medium transition-colors text-left"
+                className={`mb-0 sm:mb-0.5 flex shrink-0 sm:w-full items-center gap-2.5 rounded-sm px-3 py-2 text-[13px] font-medium transition-colors text-left border-b-2 sm:border-b-0 sm:border-l-2 ${active ? 'border-[var(--logistics-cyan)]' : 'border-transparent'}`}
                 style={{
                   background: active ? "var(--bg-overlay)" : "transparent",
                   color: active ? "var(--text-primary)" : "var(--text-secondary)",
-                  borderLeft: active ? "2px solid var(--logistics-cyan)" : "2px solid transparent",
                 }}
               >
                 <Icon className="h-4 w-4 flex-shrink-0" />

@@ -1,8 +1,7 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { auth } from "@/server/auth";
-import { DashboardSidebar } from "@/components/layout/sidebar";
-import { DashboardTopbar } from "@/components/layout/topbar";
+import { DashboardLayoutClient } from "@/components/layout/dashboard-layout-client";
 
 export const metadata: Metadata = {
   title: "Dashboard — BlockMaps",
@@ -18,17 +17,8 @@ export default async function DashboardLayout({
   if (!session.user.companyId) redirect("/onboarding");
 
   return (
-    <div className="flex h-screen w-full overflow-hidden bg-background">
-      {/* Fixed left sidebar */}
-      <DashboardSidebar user={session.user} />
-
-      {/* Main area */}
-      <div className="flex flex-1 flex-col overflow-hidden">
-        <DashboardTopbar user={session.user} />
-        <main className="flex-1 overflow-y-auto">
-          {children}
-        </main>
-      </div>
-    </div>
+    <DashboardLayoutClient user={session.user as any}>
+      {children}
+    </DashboardLayoutClient>
   );
 }

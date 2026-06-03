@@ -242,9 +242,23 @@ function CreateZoneModal({
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!name.trim()) return;
+    const baseName = name.trim();
+    if (!baseName) return;
     setLoading(true);
     setError("");
+    
+    let finalName = baseName;
+    let suffixCounter = 1;
+    let isDuplicate = true;
+    
+    while (isDuplicate) {
+      isDuplicate = existingZones.some(z => z.zone.name.toLowerCase() === finalName.toLowerCase() && z.zone.type === type);
+      if (isDuplicate) {
+        suffixCounter++;
+        finalName = `${baseName}-${suffixCounter}`;
+      }
+    }
+
     const width = 224;
     const height = 160;
     const GRID_SIZE = 32;
@@ -271,7 +285,7 @@ function CreateZoneModal({
     }
 
     const result = await createZoneAction({
-      name: name.trim(),
+      name: finalName,
       type,
       positionX: placedX,
       positionY: placedY,
@@ -364,6 +378,7 @@ function ZoneDetailPanel({
   zone,
   onClose,
   onRefresh,
+  isAdmin,
 }: {
   zone: {
     id: string;
@@ -378,6 +393,7 @@ function ZoneDetailPanel({
   };
   onClose: () => void;
   onRefresh: () => void;
+  isAdmin: boolean;
 }) {
   const [editing, setEditing] = useState(false);
   const [newName, setNewName] = useState(zone.name);
@@ -416,8 +432,12 @@ function ZoneDetailPanel({
   async function handleDelete() {
     if (!confirm(`Delete zone "${zone.name}"? This cannot be undone.`)) return;
     setLoading(true);
-    await deleteZoneAction(zone.id);
+    const result = await deleteZoneAction(zone.id);
     setLoading(false);
+    if (!result.success) {
+      alert(result.error);
+      return;
+    }
     onClose();
     onRefresh();
   }
@@ -427,7 +447,7 @@ function ZoneDetailPanel({
       {/* Header */}
       <div className="flex items-center justify-between border-b border-border px-4 py-3 bg-background/40">
         <span className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground">
-          {editing ? "MODIFY METRICS" : "ZONE INSPECTOR"}
+          {editing && isAdmin ? "MODIFY METRICS" : "ZONE INSPECTOR"}
         </span>
         <button
           type="button"
@@ -453,7 +473,7 @@ function ZoneDetailPanel({
           <p className="font-mono text-[9px] uppercase tracking-widest text-muted-foreground/75">
             Zone Descriptor
           </p>
-          {editing ? (
+          {editing && isAdmin ? (
             <input
               value={newName}
               onChange={(e) => setNewName(e.target.value)}
@@ -463,13 +483,15 @@ function ZoneDetailPanel({
           ) : (
             <div className="flex items-center justify-between border-b border-border/40 pb-1">
               <p className="text-[15px] font-medium tracking-tight text-foreground">{zone.name}</p>
-              <button
-                type="button"
-                onClick={() => setEditing(true)}
-                className="text-muted-foreground hover:text-foreground transition-colors"
-              >
-                <Pencil className="h-3 w-3" />
-              </button>
+              {isAdmin && (
+                <button
+                  type="button"
+                  onClick={() => setEditing(true)}
+                  className="text-muted-foreground hover:text-foreground transition-colors"
+                >
+                  <Pencil className="h-3 w-3" />
+                </button>
+              )}
             </div>
           )}
         </div>
@@ -492,7 +514,7 @@ function ZoneDetailPanel({
           <p className="font-mono text-[9px] uppercase tracking-widest text-muted-foreground/75">
             Spatial Dimensions
           </p>
-          {editing ? (
+          {editing && isAdmin ? (
             <div className="space-y-2">
               <div className="grid grid-cols-2 gap-2">
                 <div>
@@ -571,7 +593,7 @@ function ZoneDetailPanel({
 
       {/* Footer actions */}
       <div className="shrink-0 border-t border-border p-4 bg-background/40 space-y-2">
-        {editing ? (
+        {editing && isAdmin ? (
           <>
             <button
               type="button"
@@ -599,15 +621,17 @@ function ZoneDetailPanel({
               <span>Access Inventory</span>
               <ChevronRight className="h-3.5 w-3.5" />
             </a>
-            <button
-              type="button"
-              onClick={handleDelete}
-              disabled={loading}
-              className="flex w-full items-center justify-center gap-1.5 rounded-sm bg-red-500 py-2 text-[12px] font-medium text-white transition hover:bg-red-600 disabled:opacity-50"
-            >
-              <Trash2 className="h-3 w-3" />
-              Delete Zone
-            </button>
+            {isAdmin && (
+              <button
+                type="button"
+                onClick={handleDelete}
+                disabled={loading}
+                className="flex w-full items-center justify-center gap-1.5 rounded-sm bg-red-500 py-2 text-[12px] font-medium text-white transition hover:bg-red-600 disabled:opacity-50"
+              >
+                <Trash2 className="h-3 w-3" />
+                Delete Zone
+              </button>
+            )}
           </>
         )}
       </div>
@@ -616,7 +640,8 @@ function ZoneDetailPanel({
 }
 
 // ─── Main component ──────────────────────────────────────────────
-export function ZonesClient() {
+export function ZonesClient({ user }: { user?: { id: string; role: string } }) {
+  const isAdmin = user?.role === "ADMIN";
   const utils = api.useUtils();
   const { data: zones, isLoading } = api.zone.floorPlan.useQuery();
 
@@ -909,7 +934,7 @@ export function ZonesClient() {
   return (
     <div className="flex h-full flex-col">
       {/* ── Page header ── */}
-      <div className="flex shrink-0 items-center justify-between border-b border-border px-5 py-3 relative">
+      <div className="flex flex-col sm:flex-row shrink-0 items-start sm:items-center justify-between border-b border-border px-5 py-3 relative gap-3 sm:gap-0">
         {/* Simple Toast */}
         {toastMsg && (
           <div className={`absolute top-full mt-2 left-1/2 -translate-x-1/2 px-4 py-2 rounded shadow-lg border text-xs z-50 transition-all ${
@@ -932,8 +957,8 @@ export function ZonesClient() {
           </div>
         </div>
 
-        <div className="flex items-center gap-2">
-          {hasUnsavedLayout && (
+        <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
+          {isAdmin && hasUnsavedLayout && (
             <button
               type="button"
               onClick={handleSaveLayout}
@@ -978,14 +1003,16 @@ export function ZonesClient() {
             </button>
           </div>
 
-          <button
-            type="button"
-            onClick={() => setShowCreate(true)}
-            className="flex items-center gap-1.5 rounded border border-[var(--border-base)] bg-zinc-950 px-3 py-1.5 text-[12px] font-medium tracking-tight text-foreground transition hover:bg-accent"
-          >
-            <Plus className="h-3.5 w-3.5 text-logistics-cyan" />
-            Create Area
-          </button>
+          {isAdmin && (
+            <button
+              type="button"
+              onClick={() => setShowCreate(true)}
+              className="flex w-full sm:w-auto items-center justify-center sm:justify-start gap-1.5 rounded border border-[var(--border-base)] bg-zinc-950 px-3 py-1.5 text-[12px] font-medium tracking-tight text-foreground transition hover:bg-accent"
+            >
+              <Plus className="h-3.5 w-3.5 text-logistics-cyan" />
+              Create Area
+            </button>
+          )}
         </div>
       </div>
 
@@ -1014,7 +1041,7 @@ export function ZonesClient() {
       )}
 
       {/* ── Stats bar ── */}
-      <div className="flex shrink-0 items-center gap-px border-b border-border bg-background">
+      <div className="flex shrink-0 items-center gap-px border-b border-border bg-background overflow-x-auto whitespace-nowrap no-scrollbar">
         {totalByType.map((t) => (
           <div
             key={t.type}
@@ -1075,16 +1102,18 @@ export function ZonesClient() {
                   <EmptyState 
                     icon={Map}
                     title="No Storage Areas Yet"
-                    description="Create your first storage area to map your facility."
+                    description={isAdmin ? "Create your first storage area to map your facility." : "Your facility hasn't been mapped yet."}
                     action={
-                      <button
-                        type="button"
-                        onClick={() => setShowCreate(true)}
-                        className="flex items-center gap-1.5 rounded border border-[var(--border-base)] bg-[var(--bg-elevated)] px-4 py-2 text-[13px] font-medium tracking-tight text-foreground transition hover:bg-accent"
-                      >
-                        <Plus className="h-4 w-4" />
-                        Create Area
-                      </button>
+                      isAdmin ? (
+                        <button
+                          type="button"
+                          onClick={() => setShowCreate(true)}
+                          className="flex items-center gap-1.5 rounded border border-[var(--border-base)] bg-[var(--bg-elevated)] px-4 py-2 text-[13px] font-medium tracking-tight text-foreground transition hover:bg-accent"
+                        >
+                          <Plus className="h-4 w-4" />
+                          Create Area
+                        </button>
+                      ) : null
                     }
                   />
                 </div>
@@ -1092,7 +1121,7 @@ export function ZonesClient() {
 
               {/* Route Finder Panel */}
               {showRoutePanel ? (
-                <div className="absolute right-4 top-4 w-[280px] rounded border border-border bg-card/85 backdrop-blur-sm z-40 shadow-xl p-4 flex flex-col gap-3">
+                <div className="absolute left-2 right-2 sm:left-auto sm:right-4 top-14 sm:top-4 w-auto sm:w-[280px] rounded border border-border bg-card/85 backdrop-blur-sm z-40 shadow-xl p-4 flex flex-col gap-3">
                   <div className="flex items-center justify-between border-b border-border/50 pb-2 mb-1">
                     <div className="flex items-center gap-2">
                       <Route className="h-4 w-4 text-logistics-cyan" />
@@ -1261,8 +1290,8 @@ export function ZonesClient() {
                     isRouteMiddle={validRouteStops.slice(1, -1).includes(lz.zone.id)}
                     isDimmed={Boolean(validRouteStops.length && !validRouteStops.includes(lz.zone.id))}
                     onClick={() => setSelectedId(selectedId === lz.zone.id ? null : lz.zone.id)}
-                    onPositionChange={handlePositionChange}
-                    onSizeChange={handleSizeChange}
+                    onPositionChange={isAdmin ? handlePositionChange : undefined}
+                    onSizeChange={isAdmin ? handleSizeChange : undefined}
                   />
                 );
               })}
@@ -1272,16 +1301,18 @@ export function ZonesClient() {
               <EmptyState 
                 icon={Map}
                 title="No Storage Areas Yet"
-                description="Create your first storage area to map your facility."
+                description={isAdmin ? "Create your first storage area to map your facility." : "Your facility hasn't been mapped yet."}
                 action={
-                  <button
-                    type="button"
-                    onClick={() => setShowCreate(true)}
-                    className="flex items-center gap-1.5 rounded border border-[var(--border-base)] bg-[var(--bg-elevated)] px-4 py-2 text-[13px] font-medium tracking-tight text-foreground transition hover:bg-accent"
-                  >
-                    <Plus className="h-4 w-4" />
-                    Create Area
-                  </button>
+                  isAdmin ? (
+                    <button
+                      type="button"
+                      onClick={() => setShowCreate(true)}
+                      className="flex items-center gap-1.5 rounded border border-[var(--border-base)] bg-[var(--bg-elevated)] px-4 py-2 text-[13px] font-medium tracking-tight text-foreground transition hover:bg-accent"
+                    >
+                      <Plus className="h-4 w-4" />
+                      Create Area
+                    </button>
+                  ) : null
                 }
               />
             </div>
@@ -1341,6 +1372,7 @@ export function ZonesClient() {
             zone={selectedZone}
             onClose={() => setSelectedId(null)}
             onRefresh={refresh}
+            isAdmin={isAdmin}
           />
         )}
       </div>

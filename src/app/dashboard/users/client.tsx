@@ -305,14 +305,15 @@ export function UsersClient({ currentUser }: { currentUser: CurrentUser }) {
         </div>
 
         {/* ── Table ── */}
-        <div className="overflow-hidden rounded-md" style={{ background: "var(--bg-surface)", border: "1px solid var(--border-base)" }}>
-          {/* Header */}
-          <div className="grid border-b px-5 py-2.5 text-[10px] font-medium uppercase tracking-wider"
-            style={{ gridTemplateColumns: "2fr 2fr 1fr 1fr 80px", color: "var(--text-tertiary)", borderColor: "var(--border-base)" }}>
-            <span>Name</span><span>Email</span><span>Role</span><span>Joined</span><span className="text-right">Actions</span>
-          </div>
+        <div className="overflow-x-auto rounded-md" style={{ background: "var(--bg-surface)", border: "1px solid var(--border-base)" }}>
+          <div style={{ minWidth: "800px" }}>
+            {/* Header */}
+            <div className="grid border-b px-5 py-2.5 text-[10px] font-medium uppercase tracking-wider"
+              style={{ gridTemplateColumns: "2fr 2fr 1fr 1fr 80px", color: "var(--text-tertiary)", borderColor: "var(--border-base)" }}>
+              <span>Name</span><span>Email</span><span>Role</span><span>Joined</span><span className="text-right">Actions</span>
+            </div>
 
-          {isLoading ? (
+            {isLoading ? (
             <div className="space-y-0">
               {[...Array(8)].map((_, i) => (
                 <div key={i} className="grid items-center border-b px-5" style={{ height: "56px", gridTemplateColumns: "2fr 2fr 1fr 1fr 80px", borderColor: "var(--border-base)" }}>
@@ -399,6 +400,7 @@ export function UsersClient({ currentUser }: { currentUser: CurrentUser }) {
               </div>
             ))
           )}
+          </div>
         </div>
 
         {/* ── Pagination ── */}

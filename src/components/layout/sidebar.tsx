@@ -18,6 +18,7 @@ import {
   PanelLeftOpen,
   ChevronDown,
   CreditCard,
+  X,
 } from "lucide-react";
 import { useState, useEffect } from "react";
 import { type Role, ROLE_ALLOWED_ROUTES } from "@/lib/rbac";
@@ -61,8 +62,9 @@ interface SidebarProps {
     email?: string | null;
     image?: string | null;
   };
+  onCloseMobile?: () => void;
 }
-export function DashboardSidebar({ user }: SidebarProps) {
+export function DashboardSidebar({ user, onCloseMobile }: SidebarProps) {
   const pathname = usePathname();
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const [collapsed, setCollapsed] = useState(false);
@@ -205,13 +207,24 @@ export function DashboardSidebar({ user }: SidebarProps) {
           )}
         </div>
         {!collapsed && (
-          <button
-            onClick={toggleSidebar}
-            className="text-muted-foreground hover:text-foreground transition-colors"
-            title="Collapse sidebar"
-          >
-            <PanelLeftClose className="h-4 w-4" />
-          </button>
+          <div className="flex items-center gap-1">
+            <button
+              onClick={toggleSidebar}
+              className="hidden sm:flex text-muted-foreground hover:text-foreground transition-colors"
+              title="Collapse sidebar"
+            >
+              <PanelLeftClose className="h-4 w-4" />
+            </button>
+            {onCloseMobile && (
+              <button
+                onClick={onCloseMobile}
+                className="flex sm:hidden text-muted-foreground hover:text-foreground transition-colors"
+                title="Close sidebar"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            )}
+          </div>
         )}
       </div>
 
@@ -243,17 +256,17 @@ export function DashboardSidebar({ user }: SidebarProps) {
         )}
       </nav>
 
-      {/* ── User profile footer ── */}
       <div className={`shrink-0 py-3 ${collapsed ? "px-2 flex flex-col gap-2 items-center" : "px-3"}`} style={{ borderTop: "1px solid var(--border-base)" }}>
         {collapsed && (
           <button
             onClick={toggleSidebar}
-            className="flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-foreground transition-all"
+            className="hidden sm:flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-foreground transition-all"
             title="Expand sidebar"
           >
             <PanelLeftOpen className="h-4 w-4" />
           </button>
         )}
+
         <div className="relative w-full">
           <button
             type="button"

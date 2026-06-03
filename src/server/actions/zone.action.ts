@@ -81,6 +81,18 @@ export async function createZoneAction(
   }
 
   try {
+    const existing = await prisma.zone.findFirst({
+      where: {
+        companyId: ctx.companyId,
+        name: parsed.data.name,
+        type: parsed.data.type,
+      },
+    });
+
+    if (existing) {
+      return { success: false, error: "This area already exists for the selected area type." };
+    }
+
     const zone = await prisma.zone.create({
       data: { ...parsed.data, companyId: ctx.companyId },
       select: { id: true, name: true },
@@ -112,6 +124,24 @@ export async function updateZoneAction(
       where: { id, companyId: ctx.companyId },
     });
     if (!zone) return { success: false, error: "Zone not found." };
+
+    if (data.name || data.type) {
+      const newName = data.name ?? zone.name;
+      const newType = data.type ?? zone.type;
+
+      const existing = await prisma.zone.findFirst({
+        where: {
+          companyId: ctx.companyId,
+          name: newName,
+          type: newType,
+          id: { not: id },
+        },
+      });
+
+      if (existing) {
+        return { success: false, error: "This area already exists for the selected area type." };
+      }
+    }
 
     const updated = await prisma.zone.update({
       where: { id },
@@ -212,8 +242,27 @@ export async function deleteZoneAction(zoneId: string): Promise<ActionResult> {
   try {
     const zone = await prisma.zone.findFirst({
       where: { id: zoneId, companyId: ctx.companyId },
+      include: {
+        _count: {
+          select: { inventory: true, deliveriesFrom: true, deliveriesTo: true },
+        },
+      },
     });
     if (!zone) return { success: false, error: "Zone not found." };
+
+    if (zone._count.inventory > 0) {
+      return { 
+        success: false, 
+        error: "This zone contains items. Please transfer or remove them before deleting." 
+      };
+    }
+
+    if (zone._count.deliveriesFrom > 0 || zone._count.deliveriesTo > 0) {
+      return {
+        success: false,
+        error: "This zone is used in delivery requests. Please deactivate it instead of deleting."
+      };
+    }
 
     await prisma.zone.delete({ where: { id: zoneId } });
 

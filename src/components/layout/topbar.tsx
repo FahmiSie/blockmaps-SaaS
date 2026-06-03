@@ -1,7 +1,7 @@
 "use client";
 
 import { signOut } from "next-auth/react";
-import { Bell, LogOut, ChevronDown } from "lucide-react";
+import { Bell, LogOut, ChevronDown, Menu } from "lucide-react";
 import { useState } from "react";
 import { SystemBadge } from "@/components/blockmaps/badges/badges";
 
@@ -18,9 +18,10 @@ interface TopbarProps {
     name?: string | null;
     email?: string | null;
   };
+  onMenuClick?: () => void;
 }
 
-export function DashboardTopbar({ user }: TopbarProps) {
+export function DashboardTopbar({ user, onMenuClick }: TopbarProps) {
   const [dropdownOpen, setDropdownOpen] = useState(false);
 
   return (
@@ -34,6 +35,14 @@ export function DashboardTopbar({ user }: TopbarProps) {
     >
       {/* ── Left: breadcrumb ── */}
       <div className="flex items-center gap-2">
+        <button
+          type="button"
+          onClick={onMenuClick}
+          className="mr-2 sm:hidden flex h-7 w-7 items-center justify-center rounded-md transition-all duration-150"
+          style={{ color: "var(--text-secondary)" }}
+        >
+          <Menu className="h-4 w-4" />
+        </button>
         <span
           className="text-label"
           style={{ fontSize: "9px", color: "var(--text-tertiary)", letterSpacing: "0.08em" }}
@@ -52,10 +61,12 @@ export function DashboardTopbar({ user }: TopbarProps) {
       {/* ── Right: status + user ── */}
       <div className="flex items-center gap-1.5">
         {/* System status badge */}
-        <SystemBadge status="OPERATIONAL" />
+        <div className="hidden sm:block">
+          <SystemBadge status="OPERATIONAL" />
+        </div>
 
         <div
-          className="mx-2"
+          className="mx-2 hidden sm:block"
           style={{ width: "1px", height: "16px", background: "var(--border-base)" }}
         />
 

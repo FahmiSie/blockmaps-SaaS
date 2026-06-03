@@ -304,23 +304,25 @@ export function AnalyticsClient() {
                 <p className="text-[11px]" style={{ color: "var(--text-tertiary)" }}>Create your first delivery to see activity here</p>
               </div>
             ) : (
-              <div>
-                <div className="grid grid-cols-5 border-b px-5 py-2.5 text-[10px] font-medium uppercase tracking-wider"
-                  style={{ color: "var(--text-tertiary)", borderColor: "var(--border-base)" }}>
-                  <span>Delivery</span><span>From</span><span>To</span><span>Status</span><span className="text-right">Time</span>
-                </div>
-                {deliveryStats.recentActivity.map((d: any) => (
-                  <div key={d.id} className="grid grid-cols-5 items-center border-b px-5 transition-colors"
-                    style={{ height: "48px", borderColor: "var(--border-base)", fontSize: "12px" }}
-                    onMouseEnter={e => (e.currentTarget.style.background = "var(--bg-overlay)")}
-                    onMouseLeave={e => (e.currentTarget.style.background = "transparent")}>
-                    <span className="font-mono text-[10px] truncate" style={{ color: "var(--text-secondary)" }}>#{d.id.slice(-6).toUpperCase()}</span>
-                    <span className="truncate" style={{ color: "var(--text-primary)" }}>{d.fromZone?.name ?? "—"}</span>
-                    <span className="truncate" style={{ color: "var(--text-primary)" }}>{d.toZone?.name ?? "—"}</span>
-                    <StatusBadge status={d.status} />
-                    <span className="text-right tabular-nums" style={{ color: "var(--text-tertiary)" }}>{timeAgo(d.updatedAt)}</span>
+              <div className="overflow-x-auto">
+                <div className="min-w-[600px]">
+                  <div className="grid grid-cols-5 border-b px-5 py-2.5 text-[10px] font-medium uppercase tracking-wider"
+                    style={{ color: "var(--text-tertiary)", borderColor: "var(--border-base)" }}>
+                    <span>Delivery</span><span>From</span><span>To</span><span>Status</span><span className="text-right">Time</span>
                   </div>
-                ))}
+                  {deliveryStats.recentActivity.map((d: any) => (
+                    <div key={d.id} className="grid grid-cols-5 items-center border-b px-5 transition-colors"
+                      style={{ height: "48px", borderColor: "var(--border-base)", fontSize: "12px" }}
+                      onMouseEnter={e => (e.currentTarget.style.background = "var(--bg-overlay)")}
+                      onMouseLeave={e => (e.currentTarget.style.background = "transparent")}>
+                      <span className="font-mono text-[10px] truncate" style={{ color: "var(--text-secondary)" }}>#{d.id.slice(-6).toUpperCase()}</span>
+                      <span className="truncate" style={{ color: "var(--text-primary)" }}>{d.fromZone?.name ?? "—"}</span>
+                      <span className="truncate" style={{ color: "var(--text-primary)" }}>{d.toZone?.name ?? "—"}</span>
+                      <StatusBadge status={d.status} />
+                      <span className="text-right tabular-nums" style={{ color: "var(--text-tertiary)" }}>{timeAgo(d.updatedAt)}</span>
+                    </div>
+                  ))}
+                </div>
               </div>
             )}
           </div>

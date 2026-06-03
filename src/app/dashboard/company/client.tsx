@@ -535,7 +535,7 @@ export function CompanyClient({ currentUser }: { currentUser: CurrentUser }) {
           title="Company Information"
           sub="Basic details about your organization"
         >
-          <div className="flex items-start gap-8">
+          <div className="flex flex-col sm:flex-row items-center sm:items-start gap-6 sm:gap-8">
             <div className="flex flex-col gap-3">
               <div
                 className="flex h-16 w-16 flex-shrink-0 items-center justify-center overflow-hidden rounded-md text-[24px] font-bold"
@@ -684,7 +684,7 @@ export function CompanyClient({ currentUser }: { currentUser: CurrentUser }) {
           </div>
 
           {summary && (
-            <div className="mt-4 grid grid-cols-5 gap-2">
+            <div className="mt-4 grid grid-cols-2 sm:grid-cols-5 gap-2">
               {[
                 {
                   label: "Pending",

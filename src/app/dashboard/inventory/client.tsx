@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useDebounce } from "@/hooks/use-debounce";
 import { api } from "@/trpc/react";
 import { useForm } from "react-hook-form";
@@ -58,7 +58,26 @@ function AddStockModal({
   });
 
   const selectedItemId = form.watch("itemId");
+  const selectedZoneId = form.watch("zoneId");
   const selectedItem = items?.items.find((i) => i.id === selectedItemId);
+
+  const { data: zoneInventory } = api.inventory.byZone.useQuery(
+    { zoneId: selectedZoneId },
+    { enabled: !!selectedZoneId }
+  );
+
+  const [lastPrefillKey, setLastPrefillKey] = useState("");
+
+  useEffect(() => {
+    if (selectedItemId && selectedZoneId && zoneInventory) {
+      const key = `${selectedZoneId}-${selectedItemId}`;
+      if (lastPrefillKey !== key) {
+        const existing = zoneInventory.find((i) => i.itemId === selectedItemId);
+        form.setValue("quantity", existing ? existing.quantity : 0, { shouldValidate: true });
+        setLastPrefillKey(key);
+      }
+    }
+  }, [selectedItemId, selectedZoneId, zoneInventory, form, lastPrefillKey]);
 
   async function handleSaveStock(values: StockFormValues) {
     try {
@@ -69,7 +88,9 @@ function AddStockModal({
       });
       await utils.inventory.overview.invalidate();
       await utils.inventory.stockOverview.invalidate();
+      await utils.inventory.byZone.invalidate();
       await utils.item.list.invalidate();
+      await utils.company.dashboardSummary.invalidate();
       onSuccess();
       onClose();
       form.reset();
@@ -541,7 +562,7 @@ export function InventoryClient() {
   return (
     <div className="flex h-full flex-col">
       {/* ── Page header ── */}
-      <div className="flex shrink-0 items-center justify-between border-b border-border px-5 py-3">
+      <div className="flex flex-col sm:flex-row shrink-0 items-start sm:items-center justify-between border-b border-border px-5 py-3 gap-3 sm:gap-0">
         <div className="flex items-center gap-3">
           <Package className="h-4 w-4 text-logistics-cyan" />
           <div>
@@ -552,10 +573,10 @@ export function InventoryClient() {
           </div>
         </div>
 
-        <div className="flex gap-2">
+        <div className="flex gap-2 w-full sm:w-auto">
           <button
             onClick={() => setRegisterDialogOpen(true)}
-            className="flex items-center gap-1.5 rounded border border-[var(--border-base)] bg-zinc-950 px-3 py-1.5 text-[12px] font-medium tracking-tight text-foreground transition hover:bg-accent"
+            className="flex w-full sm:w-auto items-center justify-center sm:justify-start gap-1.5 rounded border border-[var(--border-base)] bg-zinc-950 px-3 py-1.5 text-[12px] font-medium tracking-tight text-foreground transition hover:bg-accent"
           >
             <Plus className="h-3.5 w-3.5 text-logistics-cyan" />
             Register New Product
@@ -563,7 +584,7 @@ export function InventoryClient() {
         </div>
       </div>
 
-      <div className="flex gap-4 border-b border-border px-5">
+      <div className="flex gap-4 border-b border-border px-5 overflow-x-auto whitespace-nowrap no-scrollbar">
         <button
           onClick={() => setActiveTab("MASTER")}
           className={`py-3 text-xs font-medium border-b-2 transition ${
@@ -624,55 +645,55 @@ export function InventoryClient() {
                   </div>
                 </div>
 
-                <div className="grid grid-cols-1 gap-4 lg:grid-cols-2 xl:grid-cols-3">
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4">
                   {masterPaginated.map((inv) => (
-                    <div key={inv.item.id} className="flex flex-col rounded-xl border border-border bg-card overflow-hidden shadow-sm hover:shadow-md transition-shadow">
+                    <div key={inv.item.id} className="flex flex-col rounded-lg border border-border bg-card overflow-hidden shadow-sm hover:shadow-md transition-shadow">
                     {/* Top & Middle Section */}
-                    <div className="p-5 bg-card">
-                      <div className="flex items-start justify-between mb-4">
-                        <h3 className="text-[19px] font-semibold tracking-tight text-foreground line-clamp-2 pr-4">{inv.item.name}</h3>
+                    <div className="p-3 bg-card">
+                      <div className="flex items-start justify-between mb-2">
+                        <h3 className="text-[14px] font-semibold tracking-tight text-foreground line-clamp-1 pr-2" title={inv.item.name}>{inv.item.name}</h3>
                         <div className="flex flex-col items-end shrink-0">
-                           <span className="text-[22px] font-bold tabular-nums text-foreground leading-none">
-                             {inv.totalQuantity.toLocaleString()} <span className="text-[14px] font-medium text-muted-foreground ml-1">{inv.item.unit}</span>
+                           <span className="text-[15px] font-bold tabular-nums text-foreground leading-none">
+                             {inv.totalQuantity.toLocaleString()} <span className="text-[10px] font-medium text-muted-foreground ml-0.5">{inv.item.unit}</span>
                            </span>
                         </div>
                       </div>
                       
-                      <div className="grid grid-cols-2 gap-4">
+                      <div className="grid grid-cols-2 gap-2">
                         <div>
-                          <p className="text-[12px] uppercase tracking-wider font-medium text-muted-foreground mb-1">Product Code</p>
-                          <p className="text-[14px] font-medium text-foreground">{inv.item.sku}</p>
+                          <p className="text-[9px] uppercase tracking-wider font-medium text-muted-foreground mb-0.5">Product Code</p>
+                          <p className="text-[11px] font-medium text-foreground truncate">{inv.item.sku}</p>
                         </div>
                         <div>
-                          <p className="text-[12px] uppercase tracking-wider font-medium text-muted-foreground mb-1">Unit</p>
-                          <p className="text-[14px] font-medium text-foreground">{inv.item.unit}</p>
+                          <p className="text-[9px] uppercase tracking-wider font-medium text-muted-foreground mb-0.5">Unit</p>
+                          <p className="text-[11px] font-medium text-foreground">{inv.item.unit}</p>
                         </div>
                       </div>
                     </div>
                     
                     {/* Location Section */}
-                    <div className="px-5 py-4 bg-accent/20 border-y border-border/50 flex-1">
-                      <h4 className="text-[13px] font-medium text-foreground mb-3 flex items-center gap-1.5">
+                    <div className="px-3 py-2 bg-accent/20 border-y border-border/50 flex-1">
+                      <h4 className="text-[11px] font-medium text-foreground mb-1.5 flex items-center gap-1">
                         Stored In
                       </h4>
                       
                       {!inv.zones.length ? (
-                        <div className="flex items-center gap-2 text-muted-foreground/80 py-2">
-                          <Package className="h-4 w-4" />
-                          <span className="text-[13px] italic">No stock assigned to any storage area</span>
+                        <div className="flex items-center gap-1.5 text-muted-foreground/80 py-0.5">
+                          <Package className="h-3 w-3" />
+                          <span className="text-[11px] italic">No stock assigned</span>
                         </div>
                       ) : (
-                        <ul className="space-y-2">
+                        <ul className="space-y-1">
                           {inv.zones.slice(0, 3).map((z, idx) => (
-                            <li key={idx} className="flex items-center text-[13px]">
-                              <span className="text-muted-foreground mr-2">•</span>
+                            <li key={idx} className="flex items-center text-[11px]">
+                              <span className="text-muted-foreground mr-1.5">•</span>
                               <span className="text-foreground flex-1 truncate">{z.zone.name}</span>
-                              <span className="text-muted-foreground mx-2">—</span>
+                              <span className="text-muted-foreground mx-1">—</span>
                               <span className="font-medium text-foreground tabular-nums">{z.quantity.toLocaleString()}</span>
                             </li>
                           ))}
                           {inv.zones.length > 3 && (
-                            <li className="text-[12px] italic text-muted-foreground pt-1">
+                            <li className="text-[10px] italic text-muted-foreground pt-0.5">
                               +{inv.zones.length - 3} more locations
                             </li>
                           )}
@@ -681,17 +702,17 @@ export function InventoryClient() {
                     </div>
                     
                     {/* Action Area */}
-                    <div className="p-4 bg-card flex items-center gap-3">
+                    <div className="p-2 bg-card flex items-center gap-2">
                       <button
                         onClick={() => setStockDialogConfig({ isOpen: true, defaultItemId: inv.item.id })}
-                        className="flex-1 rounded-md bg-amber-500 py-2.5 text-[14px] font-medium text-white transition hover:bg-amber-600 shadow-sm"
+                        className="flex-1 rounded bg-amber-500 py-1.5 text-[11px] font-medium text-white transition hover:bg-amber-600 shadow-sm"
                       >
                         Add Stock
                       </button>
                       <button
                         onClick={() => setMoveStockConfig({ isOpen: true, itemId: inv.item.id, itemName: inv.item.name, availableZones: inv.zones })}
                         disabled={inv.zones.length === 0}
-                        className="flex-1 rounded-md bg-accent py-2.5 text-[14px] font-medium text-foreground transition hover:bg-accent/80 disabled:opacity-50 disabled:cursor-not-allowed"
+                        className="flex-1 rounded bg-accent py-1.5 text-[11px] font-medium text-foreground transition hover:bg-accent/80 disabled:opacity-50 disabled:cursor-not-allowed"
                       >
                         Move Stock
                       </button>
@@ -767,11 +788,11 @@ export function InventoryClient() {
                 <div className="flex flex-col gap-6">
                   {stockPaginated.map((zone) => (
                     <div key={zone.id} className="rounded-md border border-border bg-card overflow-hidden">
-                    <div className="bg-accent/30 px-4 py-3 flex items-center justify-between border-b border-border/50">
+                    <div className="bg-accent/30 px-4 py-3 flex flex-col sm:flex-row sm:items-center justify-between border-b border-border/50 gap-2 sm:gap-0">
                        <div className="flex items-center gap-2">
-                         <MapPin className="h-4 w-4 text-logistics-cyan" />
-                         <h3 className="font-medium text-[14px] text-foreground">{zone.name}</h3>
-                         <span className="ml-2 rounded-full bg-background border border-border px-2 py-0.5 text-[10px] uppercase text-muted-foreground">
+                         <MapPin className="h-4 w-4 text-logistics-cyan shrink-0" />
+                         <h3 className="font-medium text-[14px] text-foreground truncate">{zone.name}</h3>
+                         <span className="ml-2 shrink-0 rounded-full bg-background border border-border px-2 py-0.5 text-[10px] uppercase text-muted-foreground">
                            {zone.type.replace("_", " ")}
                          </span>
                        </div>
@@ -782,8 +803,8 @@ export function InventoryClient() {
                          <Plus className="h-3 w-3" /> Add Item
                        </button>
                     </div>
-                    <div className="p-0">
-                       <table className="w-full text-left text-[12px]">
+                    <div className="p-0 overflow-x-auto">
+                       <table className="w-full text-left text-[12px] min-w-[500px]">
                          <thead className="bg-background/50 text-muted-foreground border-b border-border/50">
                            <tr>
                              <th className="px-4 py-2 font-medium">Item</th>
