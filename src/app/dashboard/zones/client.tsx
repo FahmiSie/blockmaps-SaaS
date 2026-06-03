@@ -19,7 +19,7 @@ import {
   X,
 } from "lucide-react";
 import { createZoneAction, deleteZoneAction, updateZoneAction } from "@/server/actions/zone.action";
-import { findMultiStopRoute, type MultiRouteResult, type RouteSegment, type Node, type Rect } from "@/lib/routing";
+import { findMultiStopRoute, type MultiRouteResult, type Rect } from "@/lib/routing";
 import { EmptyState } from "@/components/blockmaps/EmptyState";
 
 // ─── Zone type config ────────────────────────────────────────────
@@ -688,8 +688,7 @@ export function ZonesClient() {
 
       const rawX = zone.positionX;
       const rawY = zone.positionY;
-      const renderW = Math.max(GRID_SIZE, Math.round(zone.width / GRID_SIZE) * GRID_SIZE);
-      const renderH = Math.max(GRID_SIZE, Math.round(zone.height / GRID_SIZE) * GRID_SIZE);
+
 
       let targetX = rawX + newDx;
       let targetY = rawY + newDy;
@@ -700,7 +699,7 @@ export function ZonesClient() {
 
       return { ...prev, [id]: { dx: targetX - rawX, dy: targetY - rawY } };
     });
-  }, [zones, mapWidth]);
+  }, [zones]);
 
   const handleSizeChange = useCallback((id: string, dw: number, dh: number) => {
     setLocalSizes((prev) => {
@@ -723,7 +722,7 @@ export function ZonesClient() {
 
       return { ...prev, [id]: { dw: targetW - rawW, dh: targetH - rawH } };
     });
-  }, [zones, mapWidth, mapHeight]);
+  }, [zones]);
 
   const layoutZones = useMemo(() => {
     if (!zones) return [];
@@ -794,7 +793,7 @@ export function ZonesClient() {
     }
 
     return processed;
-  }, [zones, localOffsets, localSizes, mapWidth]);
+  }, [zones, localOffsets, localSizes]);
 
   const contentWidth = useMemo(() => {
     return Math.max(mapWidth, ...layoutZones.map(z => z.renderX + z.renderW + CANVAS_PADDING));
