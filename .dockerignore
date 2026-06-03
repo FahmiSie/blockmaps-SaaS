@@ -1,0 +1,38 @@
+# Dependencies
+node_modules
+npm-debug.log*
+
+# Next.js build output
+.next
+
+# Git
+.git
+.gitignore
+
+# IDE
+.vscode
+.idea
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Environment (jangan masuk ke image, pakai env_file di compose)
+.env
+.env*.local
+
+# Docker files sendiri
+Dockerfile
+docker-compose*.yml
+.dockerignore
+
+# Scripts
+deploy.sh
+setup-vps.sh
+
+# Misc
+README.md
+*.md
+start-database.sh

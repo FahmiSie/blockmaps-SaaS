@@ -15,5 +15,6 @@
 
   // ── TypeScript: always use workspace tsconfig ──────────────────
   "typescript.tsdk": "node_modules/typescript/lib",
-  "typescript.enablePromptUseWorkspaceTsdk": true
+  "typescript.enablePromptUseWorkspaceTsdk": true,
+  "WillLuke.nextjs.hasPrompted": true
 }
